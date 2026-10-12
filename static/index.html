@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>动态 MCT 小模型 · OCC 演示（io_v0.2）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        ops: { 50:'#f0f7ff', 100:'#e0effe', 800:'#1e3a5f', 900:'#0f2744' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; }
+  .chip { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.65rem; font-weight:700; line-height:1.2; padding:0.2rem 0.45rem; border-radius:0.25rem; letter-spacing:0.02em; white-space:nowrap; }
+  .chip-amber { background:#FEF3C7; color:#92400E; border:1px solid #F59E0B; }
+  .chip-yellow { background:#FEF9C3; color:#854D0E; border:1px solid #EAB308; }
+  .chip-gray { background:#F3F4F6; color:#6B7280; border:1px solid #D1D5DB; }
+  .chip-proto { background:#DBEAFE; color:#1E40AF; border:1px solid #3B82F6; }
+  .chip-warn { background:#FEE2E2; color:#991B1B; border:1px solid #F87171; }
+  .card { background:#fff; border:1px solid #E5E7EB; border-radius:0.5rem; box-shadow:0 1px 2px rgba(15,39,68,.04); }
+  .section-title { font-size:0.7rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#64748B; }
+  .fkey { font-size:0.65rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:#64748B; font-weight:600; }
+  .fkey-hint { font-size:0.6rem; color:#94A3B8; }
+  .label { font-size:0.75rem; font-weight:600; color:#334155; }
+  .muted { color:#94A3B8; }
+  .disabled-block { opacity:0.55; filter:grayscale(0.35); pointer-events:none; }
+  .risk-banner { transition: background-color .25s ease; }
+  .toggle { position:relative; width:2.5rem; height:1.35rem; border-radius:9999px; background:#CBD5E1; flex-shrink:0; }
+  .toggle.on { background:#2563EB; }
+  .toggle::after { content:''; position:absolute; top:2px; left:2px; width:1.05rem; height:1.05rem; border-radius:9999px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.15); transition:transform .2s; }
+  .toggle.on::after { transform:translateX(1.15rem); }
+  .toggle.locked { background:#E2E8F0; cursor:not-allowed; }
+  .seg { display:flex; }
+  .seg button { flex:1; padding:0.4rem 0.5rem; font-size:0.78rem; font-weight:600; border:1px solid #CBD5E1; background:#fff; color:#475569; }
+  .seg button:first-child { border-radius:0.375rem 0 0 0.375rem; }
+  .seg button:last-child { border-radius:0 0.375rem 0.375rem 0; }
+  .seg button.active { background:#1E3A5F; color:#fff; border-color:#1E3A5F; }
+  .seg button:not(:first-child) { margin-left:-1px; }
+  .src-tab.active { background:#1E3A5F; color:#fff; border-color:#1E3A5F; }
+  table.nodes { width:100%; border-collapse:collapse; font-size:0.8rem; }
+  table.nodes th { background:#F8FAFC; color:#475569; font-weight:600; text-align:left; padding:0.45rem 0.55rem; border-bottom:1px solid #E2E8F0; white-space:nowrap; }
+  table.nodes td { padding:0.4rem 0.55rem; border-bottom:1px solid #F1F5F9; vertical-align:middle; }
+  table.nodes tr.off td { color:#94A3B8; background:#F8FAFC; }
+  table.cmp th, table.cmp td { padding:0.5rem 0.7rem; font-size:0.85rem; border-bottom:1px solid #E2E8F0; }
+  table.cmp th { background:#F8FAFC; font-weight:600; color:#475569; text-align:left; }
+  .missing-item { display:flex; align-items:center; gap:0.5rem; padding:0.4rem 0.6rem; background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:0.375rem; color:#94A3B8; font-size:0.78rem; }
+  .sticky-badge {
+    position:fixed; bottom:0; left:0; right:0; z-index:50;
+    background:#7F1D1D; color:#FEE2E2; text-align:center;
+    font-size:0.75rem; font-weight:700; letter-spacing:0.04em;
+    padding:0.45rem 1rem; border-top:2px solid #DC2626;
+    box-shadow:0 -2px 8px rgba(127,29,29,.25);
+  }
+  body { padding-bottom:2.5rem; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+<!-- A. 顶栏 -->
+<header class="bg-ops-900 text-white border-b border-slate-700">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-8 h-8 rounded bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-sm font-bold text-blue-200">MCT</div>
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="text-base sm:text-lg font-bold tracking-tight">动态 MCT 小模型 · OCC 演示</h1>
+          <span class="chip chip-proto">原型</span>
+          <span class="chip chip-yellow">对齐小喜 io_v0.2</span>
+        </div>
+        <p class="text-xs text-slate-300 mt-0.5">字段 key 对齐小喜 io_v0.2 · API：POST 同源 (same-origin)/v1/mct/estimate（演示服务已接）</p>
+      </div>
+    </div>
+    <div class="text-[11px] sm:text-xs text-amber-100 bg-amber-500/15 border border-amber-400/40 rounded px-2.5 py-1.5 max-w-lg leading-snug">
+      <strong>免责声明：</strong>本页使用回传示例数据，不调用真实引擎；【未确认】/【争议】项不得视为已拍板默认事实；非正式交付。
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-4 space-y-4">
+
+  <!-- B + C -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <!-- B. 场景输入 -->
+    <section class="card lg:col-span-2 p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <div class="section-title">B · 场景输入</div>
+          <p class="text-sm font-semibold text-slate-800 mt-0.5">对齐小喜 io_v0.2 · 测算器 B5–B13</p>
+        </div>
+        <button id="btnLoadDefault" type="button"
+          class="text-sm font-semibold px-3 py-1.5 rounded border border-blue-600 text-blue-700 bg-blue-50 hover:bg-blue-100 transition">
+          载入默认演示场景
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+
+        <!-- flow -->
+        <div class="sm:col-span-2 xl:col-span-3">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
+            <span class="label">流向</span>
+            <span class="fkey">flow</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="chip chip-amber">【未确认】I转D 是否等同 E-D；E-C 本包几乎无实测样本</span>
+          </div>
+          <div class="seg" id="flowSeg" role="group" aria-label="flow">
+            <button type="button" data-val="E-C">E-C</button>
+            <button type="button" data-val="E-D" class="active">E-D</button>
+          </div>
+          <p class="text-[11px] muted mt-1">测算器仅 E-C / E-D 两档 · 无 I-D 选项</p>
+        </div>
+
+        <!-- through -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">通程</span>
+            <span class="fkey">through</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+          </div>
+          <div class="seg" id="throughSeg">
+            <button type="button" data-val="是">是</button>
+            <button type="button" data-val="否" class="active">否</button>
+          </div>
+        </div>
+
+        <!-- carry_on_only -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">免提</span>
+            <span class="fkey">carry_on_only</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="chip chip-amber">【争议】行李是否入引擎</span>
+          </div>
+          <div class="seg" id="carrySeg">
+            <button type="button" data-val="是">是</button>
+            <button type="button" data-val="否" class="active">否</button>
+          </div>
+          <p class="text-[11px] text-amber-700 mt-1">是 → baggage.included=0；通程或免提 → id_process.included=0</p>
+        </div>
+
+        <!-- stand -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">机位</span>
+            <span class="fkey">stand</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+          </div>
+          <div class="seg" id="standSeg">
+            <button type="button" data-val="近机位">近机位</button>
+            <button type="button" data-val="远机位" class="active">远机位</button>
+            <button type="button" data-val="远远机位">远远机位</button>
+          </div>
+        </div>
+
+        <!-- ac_type -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">机型</span>
+            <span class="fkey">ac_type</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+          </div>
+          <div class="seg" id="acTypeSeg">
+            <button type="button" data-val="窄体" class="active">窄体</button>
+            <button type="button" data-val="宽体">宽体</button>
+          </div>
+        </div>
+
+        <!-- seat_zone -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">舱位</span>
+            <span class="fkey">seat_zone</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="chip chip-amber">【未确认】与实测座位号切分对应</span>
+          </div>
+          <div class="seg" id="seatSeg">
+            <button type="button" data-val="前舱">前舱</button>
+            <button type="button" data-val="中舱">中舱</button>
+            <button type="button" data-val="后舱" class="active">后舱</button>
+          </div>
+        </div>
+
+        <!-- period -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">时段</span>
+            <span class="fkey">period</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="chip chip-amber">【未确认】时钟切分</span>
+          </div>
+          <div class="seg" id="periodSeg">
+            <button type="button" data-val="早">早</button>
+            <button type="button" data-val="中" class="active">中</button>
+            <button type="button" data-val="晚">晚</button>
+            <button type="button" data-val="凌晨">凌晨</button>
+          </div>
+        </div>
+
+        <!-- nation -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">旅客国籍</span>
+            <span class="fkey">nation</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="chip chip-amber">【未确认】空白国籍是否=国内</span>
+          </div>
+          <div class="seg" id="nationSeg">
+            <button type="button" data-val="国内">国内</button>
+            <button type="button" data-val="外籍" class="active">外籍</button>
+          </div>
+        </div>
+
+        <!-- window_min -->
+        <div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">可用窗口</span>
+            <span class="fkey">window_min</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="chip chip-amber">【未确认】可用窗口时钟</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="windowMin" type="number" min="1" max="300" step="1" value="55"
+              class="w-28 text-sm border border-slate-300 rounded px-2.5 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <span class="text-sm text-slate-500">分钟</span>
+          </div>
+          <p class="text-[11px] muted mt-1">默认 55 来自测算器；T3 包无此字段</p>
+        </div>
+
+        <!-- mode -->
+        <div class="sm:col-span-2">
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="label">引擎模式</span>
+            <span class="fkey">mode</span>
+            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+          </div>
+          <div class="flex gap-1 flex-wrap">
+            <button type="button" id="modeExcel" class="src-tab px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50">excel_default</button>
+            <button type="button" id="modeHybrid" class="src-tab px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50 active">hybrid_t3</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 边防争议只读 -->
+      <div class="mt-4 p-3 rounded border border-amber-300 bg-amber-50/60">
+        <div class="flex items-center gap-2 flex-wrap mb-2">
+          <span class="chip chip-amber">【争议】</span>
+          <span class="text-sm font-semibold text-slate-800">边防 4.7× vs 测算器 2.0–2.5×</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+          <div class="rounded border border-slate-200 bg-white px-3 py-2 flex justify-between items-center">
+            <span class="text-slate-600">边防口径（材料）</span>
+            <span class="font-mono font-bold">4.7×</span>
+          </div>
+          <div class="rounded border border-slate-200 bg-white px-3 py-2 flex justify-between items-center">
+            <span class="text-slate-600">测算器口径</span>
+            <span class="font-mono font-bold">2.0–2.5×</span>
+          </div>
+        </div>
+        <p class="text-[11px] text-amber-800 mt-2">只读对照 · 边防倍数表内争议不改公式 · 本原型不替用户选边</p>
+      </div>
+    </section>
+
+    <!-- C. 运行控制 -->
+    <section class="card p-4 flex flex-col">
+      <div class="section-title">C · 运行控制</div>
+      <p class="text-sm font-semibold text-slate-800 mt-0.5 mb-3">示例数据刷新（非真实引擎）</p>
+
+      <button id="btnRun" type="button"
+        class="w-full py-3 px-4 rounded-lg bg-ops-800 hover:bg-ops-900 text-white font-bold text-sm shadow-sm transition">
+        调用测算接口
+      </button>
+      <p class="text-[11px] muted mt-2 leading-relaxed">仅回填默认场景回传示例。不发明公式。正式测算：POST /v1/mct/estimate</p>
+
+      <div class="mt-4 p-3 rounded border border-dashed border-slate-300 bg-slate-50">
+        <div class="text-xs font-semibold text-slate-500 mb-1">引擎 / API</div>
+        <div class="text-sm font-mono text-slate-500">POST /v1/mct/estimate</div>
+        <div class="text-sm font-mono text-slate-400 mt-0.5">engine: mct-svc-0.1-demo · io_v0.2</div>
+        <div id="apiStatus" class="text-xs font-mono mt-1 text-slate-500">待连接演示服…</div>
+      </div>
+
+      <!-- 超时：禁用 -->
+      <div class="mt-4 p-3 rounded border border-amber-300 bg-amber-50/50">
+        <div class="flex items-center gap-2 flex-wrap mb-2">
+          <span class="chip chip-amber">【争议】</span>
+          <span class="text-sm font-semibold">超时：人工 vs 自动执行</span>
+        </div>
+        <div class="flex items-center justify-between gap-2 opacity-60">
+          <span class="text-sm text-slate-600">超时自动执行</span>
+          <span class="toggle locked" title="策略未拍板" aria-disabled="true"></span>
+        </div>
+        <p class="text-[11px] text-amber-800 mt-2 font-medium">Word 与 PPT 冲突 · 策略未拍板 · 开关已禁用 · 本版不实现</p>
+      </div>
+
+      <!-- 降级静态 MCT 灰显 -->
+      <div class="mt-4 p-3 rounded border border-slate-200 bg-slate-50 disabled-block">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="chip chip-gray">【未确认】</span>
+          <span class="text-sm font-semibold text-slate-500">降级静态 MCT 流向</span>
+        </div>
+        <p class="text-xs text-slate-400">降级=静态 MCT + 人工接管 · 对应哪条流向未确认 · API 不返回静态分钟 · 灰显不可操作</p>
+      </div>
+
+      <div id="runToast" class="mt-auto pt-3 text-xs text-emerald-700 hidden">✓ 已调用测算接口</div>
+    </section>
+  </div>
+
+  <!-- D. 结果总览 -->
+  <section class="card p-4">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+      <div>
+        <div class="section-title">D · 结果总览 summary</div>
+        <div class="flex items-center gap-2 flex-wrap mt-0.5">
+          <p class="text-sm font-semibold text-slate-800">p50_min / p90_min / p95_min · risk_level · action</p>
+          <span class="chip chip-yellow">回传示例数据</span>
+          <span class="chip chip-amber">【争议】风险三套语言 · 当前仅挂「窗口 vs 分位」· 另两套未接入</span>
+        </div>
+      </div>
+      <div class="text-xs text-slate-500 font-mono">mode=<span id="dispMode">hybrid_t3</span></div>
+    </div>
+
+    <div id="riskBanner" class="risk-banner rounded-lg px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-white" style="background:#DC2626">
+      <div>
+        <div class="text-xs font-semibold uppercase tracking-wider opacity-90">risk_level（相对 window_min · 窗口 vs 分位）</div>
+        <div class="text-2xl font-black tracking-tight" id="riskLabel">极高风险</div>
+        <div class="text-sm mt-1 opacity-95" id="riskAction">预改签 / 急转 / 专人保障</div>
+      </div>
+      <div class="text-right text-sm opacity-95 font-mono">
+        <div>window_min=<span id="riskWindow">55</span></div>
+        <div class="text-xs opacity-80">mode=<span id="riskSource">hybrid_t3</span></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div class="text-xs font-semibold text-slate-500 font-mono">p50_min</div>
+        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP50">74.40</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
+      </div>
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div class="text-xs font-semibold text-slate-500 font-mono">p90_min</div>
+        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP90">94.22</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
+      </div>
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div class="text-xs font-semibold text-slate-500 font-mono">p95_min</div>
+        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP95">99.87</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
+      </div>
+      <div class="rounded-lg border border-dashed border-slate-300 bg-slate-100/80 p-3 opacity-60">
+        <div class="flex items-center gap-1.5">
+          <div class="text-xs font-semibold text-slate-400 font-mono">p99</div>
+          <span class="chip chip-gray">缺项</span>
+        </div>
+        <div class="text-2xl font-bold font-mono text-slate-400 mt-1">—</div>
+        <p class="text-[11px] text-slate-400 mt-1">测算器无 P99 行 · 不输出</p>
+      </div>
+    </div>
+    <p class="text-[11px] text-slate-500 mt-3">风险规则（io_v0.2 §4）：窗≥P95 低风险；≥P90 可控风险；≥P50 高风险；否则极高风险。PPT 另有 S1–S4 / P99=等级写法 — <strong>另两套未接入</strong>。</p>
+  </section>
+
+  <!-- E. 基线对照 + 节点表 -->
+  <section class="card p-4 overflow-x-auto">
+    <div class="flex items-center gap-2 flex-wrap mb-3">
+      <div>
+        <div class="section-title">E · 基线对照 + nodes[]</div>
+        <p class="text-sm font-semibold text-slate-800 mt-0.5">excel_default vs hybrid_t3 · 10 节点明细</p>
+      </div>
+      <span class="chip chip-yellow">回传示例数据 · 非现场测算</span>
+    </div>
+
+    <table class="cmp w-full min-w-[520px] mb-5">
+      <thead>
+        <tr>
+          <th>mode</th>
+          <th>p50_min</th>
+          <th>p90_min</th>
+          <th>p95_min</th>
+          <th>risk_level（当前窗）</th>
+          <th>action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr id="rowExcel">
+          <td class="font-semibold font-mono text-sm">excel_default</td>
+          <td class="font-mono">72</td>
+          <td class="font-mono">97</td>
+          <td class="font-mono">104.13</td>
+          <td><span id="riskExcelChip" class="chip">极高风险</span></td>
+          <td class="text-xs" id="actionExcel">预改签 / 急转 / 专人保障</td>
+        </tr>
+        <tr id="rowHybrid" class="bg-blue-50/40">
+          <td class="font-semibold font-mono text-sm">hybrid_t3</td>
+          <td class="font-mono">74.40</td>
+          <td class="font-mono">94.22</td>
+          <td class="font-mono">99.87</td>
+          <td><span id="riskHybridChip" class="chip">极高风险</span></td>
+          <td class="text-xs" id="actionHybrid">预改签 / 急转 / 专人保障</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="flex items-center gap-2 mb-2 flex-wrap">
+      <p class="text-sm font-semibold text-slate-700">节点明细 nodes[]（计入开关只读，由 through / carry_on_only / stand 推导）</p>
+      <span class="text-xs text-slate-400 font-mono">included_count=<span id="includedCount">10</span></span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="nodes min-w-[720px]">
+        <thead>
+          <tr>
+            <th>id</th>
+            <th>name</th>
+            <th>included</th>
+            <th>p50_min</th>
+            <th>p90_min</th>
+            <th>source</th>
+            <th>source_n</th>
+            <th>note</th>
+          </tr>
+        </thead>
+        <tbody id="nodesBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- F. 争议与未确认 — 强制可见，不可折叠 -->
+  <section class="card p-4" style="border-color:#FCD34D;border-width:1px">
+    <div class="flex items-center gap-2 flex-wrap mb-3">
+      <div>
+        <div class="section-title" style="color:#B45309">F · 争议与未确认</div>
+        <p class="text-sm font-semibold text-slate-800 mt-0.5">强制可见 · 默认展开 · 不可折叠藏起 · 不得视为已拍板</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5" id="controversyPanel">
+      <div class="rounded border border-amber-300 bg-amber-50/70 p-3">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="chip chip-amber">【争议】</span>
+          <span class="text-sm font-bold text-slate-800">风险三套语言</span>
+        </div>
+        <p class="text-xs text-slate-600 leading-relaxed">本小模型只实现「窗口 vs 分位」一套。PPT 另有 S1–S4 场景分位与「P50/P90/P95/P99=风险等级」写法 — <strong>另两套未接入</strong>。</p>
+      </div>
+      <div class="rounded border border-amber-300 bg-amber-50/70 p-3">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="chip chip-amber">【争议】</span>
+          <span class="text-sm font-bold text-slate-800">边防 4.7× vs 测算器 2.0–2.5×</span>
+        </div>
+        <p class="text-xs text-slate-600 leading-relaxed">参数区只读对比条，不替用户选边；表内争议不改公式。</p>
+      </div>
+      <div class="rounded border border-amber-300 bg-amber-50/70 p-3">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="chip chip-amber">【争议】</span>
+          <span class="text-sm font-bold text-slate-800">超时人工 vs 自动</span>
+        </div>
+        <p class="text-xs text-slate-600 leading-relaxed">Word 与 PPT 冲突 → 未拍板。界面：禁用开关 +「策略未拍板」。本版不实现超时自动执行。</p>
+      </div>
+      <div class="rounded border border-amber-300 bg-amber-50/70 p-3">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="chip chip-amber">【争议】</span>
+          <span class="text-sm font-bold text-slate-800">行李是否入引擎</span>
+        </div>
+        <p class="text-xs text-slate-600 leading-relaxed">与 carry_on_only 联动；是则 baggage.included=0。默认不宣称行李已入模。</p>
+      </div>
+      <div class="rounded border border-slate-300 bg-slate-50 p-3">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="chip chip-gray">【未确认】</span>
+          <span class="text-sm font-bold text-slate-500">降级静态 MCT 流向</span>
+        </div>
+        <p class="text-xs text-slate-500 leading-relaxed">降级路径区块灰显「流向未确认」。API 仅可回 flags.degrade_flow_unconfirmed，不返回静态分钟。</p>
+      </div>
+      <div class="rounded border border-amber-200 bg-amber-50/40 p-3">
+        <div class="flex items-center gap-2 flex-wrap mb-1">
+          <span class="chip chip-amber">【未确认】</span>
+          <span class="text-sm font-bold text-slate-800">可用窗口时钟</span>
+        </div>
+        <p class="text-xs text-slate-600 leading-relaxed">相对截载 / 登机口关闭 / 关舱哪一时钟未确认。绑在 window_min 旁黄标。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- flags 脚注 — 优先渲染 flags.labels[]（数组） -->
+  <section class="card p-4 border-amber-100">
+    <div class="section-title mb-1" style="color:#B45309">F/flags · 优先渲染 labels[]（数组逐条）</div>
+    <p class="text-xs text-slate-500 mb-3">flags.labels 为字符串数组，勿当对象 · 【未确认】禁止藏</p>
+    <ul id="flagsList" class="space-y-1.5 text-sm"></ul>
+  </section>
+
+  <!-- G. 缺项清单 -->
+  <section class="card p-4">
+    <div class="section-title mb-1">G · 缺项清单</div>
+    <p class="text-sm font-semibold text-slate-500 mb-3">灰显 · labels 中【缺项】同步到此 · 另含静态产品缺项</p>
+    <div id="missingFromLabels" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-2"></div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      <div class="missing-item"><span class="chip chip-gray">缺项</span> 无 P99（测算器无 P99 行）</div>
+      <div class="missing-item"><span class="chip chip-gray">缺项</span> 成本 v2.0（cost_* 无公式）</div>
+      <div class="missing-item"><span class="chip chip-gray">缺项</span> 附件 1–4</div>
+      <div class="missing-item"><span class="chip chip-gray">缺项</span> 滑行 / 行李 / 捷运：无实测分布（missing_nodes）</div>
+      <div class="missing-item"><span class="chip chip-gray">缺项</span> 摆渡：仅点值（bus_p90_not_from_t3）</div>
+      <div class="missing-item"><span class="chip chip-gray">缺项</span> mobility 行动能力（未入引擎）</div>
+      <div class="missing-item"><span class="chip chip-gray">缺项</span> 蒙特卡洛 / Log-Normal σ（no_lognormal_sigma）</div>
+      <div class="missing-item"><span class="chip chip-gray">缺项</span> 超时自动执行（未拍板 · 不实现）</div>
+    </div>
+  </section>
+
+  <footer class="text-center text-[11px] text-slate-400 pb-2 pt-1">
+    OCC 演示原型 · 对齐 io_v0.2 · 已接本地演示服 POST /v1/mct/estimate · 【未确认】不升格
+  </footer>
+</main>
+
+<!-- 持久角标 -->
+<div class="sticky-badge" role="status">演示可跑 · 服务闸已过 · 对齐 io_v0.2 · 非正式生产</div>
+
+<script>
+(function () {
+  /** 默认场景回传示例 — 仅展示用，不发明公式 */
+  const SUMMARY = {
+    excel_default: { p50_min: 72, p90_min: 97, p95_min: 104.13 },
+    hybrid_t3:     { p50_min: 74.40, p90_min: 94.22, p95_min: 99.87 }
+  };
+
+  const RISK_META = {
+    '低风险':   { color: '#16A34A', chipBg: '#DCFCE7', chipFg: '#166534', chipBd: '#16A34A', action: '正常衔接，观察' },
+    '可控风险': { color: '#CA8A04', chipBg: '#FEF9C3', chipFg: '#854D0E', chipBd: '#CA8A04', action: '进入预警池，准备触达' },
+    '高风险':   { color: '#EA580C', chipBg: '#FFEDD5', chipFg: '#9A3412', chipBd: '#EA580C', action: '飞行中预警 + 落地前方案确认' },
+    '极高风险': { color: '#DC2626', chipBg: '#FEE2E2', chipFg: '#991B1B', chipBd: '#DC2626', action: '预改签 / 急转 / 专人保障' }
+  };
+
+  /** 默认场景节点表（io_v0.2 §3） */
+  const NODE_DEFS = [
+    { id:'taxi_in',    name:'滑行入位',     excel:{p50:3,p90:4},     hybrid:{p50:3,p90:4,source:'excel_fallback_no_dist',n:null}, note:null },
+    { id:'deplane',    name:'座位区域下机', excel:{p50:12,p90:18},   hybrid:{p50:11.0,p90:13.0,source:'t3_empirical',n:36}, note:'舱位切分【未确认】' },
+    { id:'bus',        name:'远机位摆渡',   excel:{p50:6,p90:9},     hybrid:{p50:6,p90:9,source:'excel_fallback_no_dist',n:null}, note:'摆渡仅标准点值，P90 沿用 Excel' },
+    { id:'imm',        name:'进港边防',     excel:{p50:5,p90:15},    hybrid:{p50:10.1,p90:21.3,source:'t3_empirical',n:175}, note:null },
+    { id:'customs',    name:'海关',         excel:{p50:2,p90:5},     hybrid:{p50:1.5,p90:2.7,source:'t3_empirical',n:112}, note:null },
+    { id:'baggage',    name:'提取行李',     excel:{p50:10,p90:22},   hybrid:{p50:10,p90:22,source:'excel_fallback_no_dist',n:null}, note:'本包无样本；免提时计入=0' },
+    { id:'id_process', name:'I-D办理手续',  excel:{p50:10,p90:25},   hybrid:{p50:5.3,p90:12.9,source:'t3_empirical',n:112}, note:'通程或免提时计入=0' },
+    { id:'walk',       name:'楼内步行',     excel:{p50:9,p90:13},    hybrid:{p50:9,p90:13,source:'excel_fallback_no_dist',n:null}, note:'路径拼法【未确认】· Hybrid 仍 Excel' },
+    { id:'apm',        name:'捷运及固定段', excel:{p50:8,p90:10},    hybrid:{p50:8,p90:10,source:'excel_fallback_no_dist',n:null}, note:'本包无样本' },
+    { id:'security',   name:'国内安检',     excel:{p50:7,p90:16},    hybrid:{p50:10.5,p90:16.0,source:'t3_empirical',n:112}, note:'时段切分【未确认】故 Hybrid 用 overall' }
+  ];
+
+  const FLAGS_TRUE = [
+    { key:'window_clock_unconfirmed', text:'窗口相对哪一时钟未确认（截载 / 登机口关闭 / 关舱）' },
+    { key:'window_55_not_in_t3_pack', text:'默认 window_min=55 来自测算器，非 T3 包字段' },
+    { key:'flow_ec_ed_meaning_unconfirmed', text:'【未确认】E-C/E-D 业务含义；实测「I转D」是否≡E-D' },
+    { key:'baggage_in_engine_scope_unconfirmed', text:'【未确认·行李是否入引擎】免提开关已入；细档行李模式未入' },
+    { key:'blank_nation_eq_domestic_unconfirmed', text:'实测「空白国籍」是否=国内 未确认' },
+    { key:'seat_zone_vs_row_unconfirmed', text:'seat_zone（前/中/后舱）与实测座位号切分对应关系未确认' },
+    { key:'period_bins_unconfirmed', text:'period 时钟切分未确认；T3 Hybrid 安检暂用 overall' },
+    { key:'bus_p90_not_from_t3', text:'Hybrid 下摆渡仍 Excel（T3 仅点值，不能估 P90）' },
+    { key:'walk_path_unconfirmed', text:'步行路径拼法未确认，Hybrid 步行仍 Excel' },
+    { key:'degrade_flow_unconfirmed', text:'【未确认】降级静态 MCT 对应哪条流向/通程非通程；本版不返回静态分钟' }
+  ];
+
+  const state = {
+    flow: 'E-D',
+    through: '否',
+    carry_on_only: '否',
+    stand: '远机位',
+    ac_type: '窄体',
+    seat_zone: '后舱',
+    period: '中',
+    nation: '外籍',
+    window_min: 55,
+    mode: 'hybrid_t3'
+  };
+
+
+  const API_BASE = '';
+  let lastResponse = null;
+  let liveMode = false; // true after successful API call
+
+  function setApiStatus(text, ok) {
+    const el = document.getElementById('apiStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'text-xs font-mono mt-1 ' + (ok ? 'text-emerald-700' : 'text-amber-700');
+  }
+
+  async function callEstimate() {
+    const w = Number(document.getElementById('windowMin').value) || 0;
+    state.window_min = w;
+    const body = {
+      flow: state.flow,
+      through: state.through,
+      carry_on_only: state.carry_on_only,
+      stand: state.stand,
+      ac_type: state.ac_type,
+      seat_zone: state.seat_zone,
+      period: state.period,
+      nation: state.nation,
+      window_min: state.window_min,
+      mode: state.mode,
+      request_id: 'ui-' + Date.now()
+    };
+    setApiStatus('请求中… POST /v1/mct/estimate', true);
+    try {
+      const res = await fetch(API_BASE + '/v1/mct/estimate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      lastResponse = data;
+      liveMode = true;
+      applyLiveResponse(data);
+      setApiStatus('已接演示服 · ' + (data.engine_version || '') + ' · request_id=' + (data.request_id || ''), true);
+      return true;
+    } catch (err) {
+      liveMode = false;
+      setApiStatus('服务不可用，回退本地备案数字：' + err.message, false);
+      renderAll();
+      return false;
+    }
+  }
+
+  function applyLiveResponse(data) {
+    const sum = data.summary || {};
+    const mode = data.mode || state.mode;
+    state.mode = mode;
+    // refresh SUMMARY from compare when present
+    if (data.compare) {
+      if (data.compare.excel_default) {
+        SUMMARY.excel_default = {
+          p50_min: data.compare.excel_default.p50_min,
+          p90_min: data.compare.excel_default.p90_min,
+          p95_min: data.compare.excel_default.p95_min
+        };
+      }
+      if (data.compare.hybrid_t3) {
+        SUMMARY.hybrid_t3 = {
+          p50_min: data.compare.hybrid_t3.p50_min,
+          p90_min: data.compare.hybrid_t3.p90_min,
+          p95_min: data.compare.hybrid_t3.p95_min
+        };
+      }
+    }
+    // primary summary from live
+    SUMMARY[mode] = {
+      p50_min: sum.p50_min,
+      p90_min: sum.p90_min,
+      p95_min: sum.p95_min
+    };
+
+    const level = sum.risk_level || riskOf(state.window_min, mode);
+    const action = sum.action || (RISK_META[level] && RISK_META[level].action) || '';
+    const meta = RISK_META[level] || RISK_META['极高风险'];
+
+    document.getElementById('vP50').textContent = sum.p50_min;
+    document.getElementById('vP90').textContent = sum.p90_min;
+    document.getElementById('vP95').textContent = sum.p95_min;
+    document.getElementById('riskLabel').textContent = level;
+    document.getElementById('riskAction').textContent = action;
+    document.getElementById('riskWindow').textContent = sum.window_min != null ? sum.window_min : state.window_min;
+    document.getElementById('riskSource').textContent = mode;
+    document.getElementById('dispMode').textContent = mode;
+    document.getElementById('riskBanner').style.background = meta.color;
+    if (sum.included_count != null) document.getElementById('includedCount').textContent = sum.included_count;
+
+    // compare chips
+    const w = state.window_min;
+    if (data.compare && data.compare.excel_default) {
+      const le = data.compare.excel_default.risk_level || riskOf(w, 'excel_default');
+      applyChip(document.getElementById('riskExcelChip'), le);
+      document.getElementById('actionExcel').textContent = data.compare.excel_default.action || RISK_META[le].action;
+      document.getElementById('cmpExcelP50') && (document.getElementById('cmpExcelP50').textContent = data.compare.excel_default.p50_min);
+    } else {
+      const le = riskOf(w, 'excel_default');
+      applyChip(document.getElementById('riskExcelChip'), le);
+      document.getElementById('actionExcel').textContent = RISK_META[le].action;
+    }
+    if (data.compare && data.compare.hybrid_t3) {
+      const lh = data.compare.hybrid_t3.risk_level || riskOf(w, 'hybrid_t3');
+      applyChip(document.getElementById('riskHybridChip'), lh);
+      document.getElementById('actionHybrid').textContent = data.compare.hybrid_t3.action || RISK_META[lh].action;
+    } else {
+      const lh = riskOf(w, 'hybrid_t3');
+      applyChip(document.getElementById('riskHybridChip'), lh);
+      document.getElementById('actionHybrid').textContent = RISK_META[lh].action;
+    }
+
+    document.getElementById('rowExcel').classList.toggle('bg-blue-50/40', mode === 'excel_default');
+    document.getElementById('rowHybrid').classList.toggle('bg-blue-50/40', mode === 'hybrid_t3');
+    document.getElementById('modeExcel').classList.toggle('active', mode === 'excel_default');
+    document.getElementById('modeHybrid').classList.toggle('active', mode === 'hybrid_t3');
+
+    // nodes from API
+    if (Array.isArray(data.nodes)) {
+      const body = document.getElementById('nodesBody');
+      body.innerHTML = '';
+      data.nodes.forEach(n => {
+        const inc = n.included;
+        const tr = document.createElement('tr');
+        if (!inc) tr.classList.add('off');
+        tr.innerHTML =
+          '<td class="font-mono text-xs">' + n.id + '</td>' +
+          '<td>' + (n.name || '') + '</td>' +
+          '<td class="font-mono">' + inc + '</td>' +
+          '<td class="font-mono">' + (inc ? n.p50_min : '—') + '</td>' +
+          '<td class="font-mono">' + (inc ? n.p90_min : '—') + '</td>' +
+          '<td><span class="chip chip-gray">' + (n.source || '') + '</span></td>' +
+          '<td class="font-mono text-xs">' + (n.source_n != null ? n.source_n : '—') + '</td>' +
+          '<td class="text-xs text-slate-500">' + (n.note || '') + '</td>';
+        body.appendChild(tr);
+      });
+    } else {
+      renderNodes();
+    }
+
+    // flags from API
+    renderFlagsFromResponse(data.flags);
+  }
+
+  function renderFlagsFromResponse(flags) {
+    const ul = document.getElementById('flagsList');
+    const missingBox = document.getElementById('missingFromLabels');
+    ul.innerHTML = '';
+    if (missingBox) missingBox.innerHTML = '';
+    if (!flags || typeof flags !== 'object') {
+      renderFlags();
+      return;
+    }
+
+    // flags.labels 是字符串数组（非对象）— 优先逐条渲染到 F/G
+    const labels = Array.isArray(flags.labels) ? flags.labels : [];
+    if (labels.length) {
+      labels.forEach(text => {
+        const s = String(text);
+        const isMissing = s.indexOf('【缺项】') === 0;
+        const li = document.createElement('li');
+        if (isMissing) {
+          li.className = 'flex items-start gap-2 rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5';
+          li.innerHTML = '<span class="chip chip-gray shrink-0">缺项</span><span>' + s.replace(/^【缺项】/, '') + '</span>';
+          // G 区同步一份
+          if (missingBox) {
+            const div = document.createElement('div');
+            div.className = 'missing-item';
+            div.innerHTML = '<span class="chip chip-gray">缺项</span> ' + s.replace(/^【缺项】/, '');
+            missingBox.appendChild(div);
+          }
+        } else {
+          li.className = 'flex items-start gap-2 rounded border border-amber-200 bg-amber-50/50 px-2.5 py-1.5';
+          const chip = s.indexOf('【未确认】') === 0 ? '【未确认】' : '提示';
+          const body = s.replace(/^【未确认】/, '');
+          li.innerHTML = '<span class="chip chip-amber shrink-0">' + chip + '</span><span>' + body + '</span>';
+        }
+        ul.appendChild(li);
+      });
+      return;
+    }
+
+    // 无 labels 数组时回退：按布尔 flags + FLAGS_TRUE
+    Object.keys(flags).forEach(key => {
+      if (key === 'labels') return;
+      const val = flags[key];
+      if (val === false || val == null) return;
+      if (key === 'missing_nodes') {
+        const li = document.createElement('li');
+        li.className = 'flex items-start gap-2 rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5';
+        li.innerHTML = '<span class="chip chip-gray shrink-0">缺项</span><span><span class="font-mono text-xs text-slate-500">missing_nodes</span> · ' + JSON.stringify(val) + '</span>';
+        ul.appendChild(li);
+        return;
+      }
+      if (val !== true && typeof val !== 'string') return;
+      const text = typeof val === 'string' ? val : ((FLAGS_TRUE.find(f => f.key === key) || {}).text || key);
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-2 rounded border border-amber-200 bg-amber-50/50 px-2.5 py-1.5';
+      li.innerHTML = '<span class="chip chip-amber shrink-0">【未确认】</span><span><span class="font-mono text-xs text-slate-500">' + key + '</span> · ' + text + '</span>';
+      ul.appendChild(li);
+    });
+  }
+
+  
+  function deriveIncluded() {
+    const bag = state.carry_on_only === '是' ? 0 : 1;
+    const idp = (state.through === '是' || state.carry_on_only === '是') ? 0 : 1;
+    const bus = state.stand === '近机位' ? 0 : 1;
+    return {
+      taxi_in: 1, deplane: 1, bus: bus, imm: 1, customs: 1,
+      baggage: bag, id_process: idp, walk: 1, apm: 1, security: 1
+    };
+  }
+
+  function riskOf(windowMin, mode) {
+    const s = SUMMARY[mode];
+    if (windowMin >= s.p95_min) return '低风险';
+    if (windowMin >= s.p90_min) return '可控风险';
+    if (windowMin >= s.p50_min) return '高风险';
+    return '极高风险';
+  }
+
+  function applyChip(el, level) {
+    const m = RISK_META[level];
+    el.textContent = level;
+    el.style.background = m.chipBg;
+    el.style.color = m.chipFg;
+    el.style.border = '1px solid ' + m.chipBd;
+  }
+
+  function bindSeg(id, key) {
+    const el = document.getElementById(id);
+    el.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-val]');
+      if (!btn) return;
+      state[key] = btn.getAttribute('data-val');
+      el.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === state[key]));
+      callEstimate();
+    });
+  }
+
+  function setSegValue(id, val) {
+    const el = document.getElementById(id);
+    el.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === val));
+  }
+
+  function renderNodes() {
+    const included = deriveIncluded();
+    const isHybrid = state.mode === 'hybrid_t3';
+    let count = 0;
+    const body = document.getElementById('nodesBody');
+    body.innerHTML = '';
+    NODE_DEFS.forEach(n => {
+      const inc = included[n.id];
+      if (inc) count++;
+      const vals = isHybrid ? n.hybrid : { p50: n.excel.p50, p90: n.excel.p90, source: 'excel_default', n: null };
+      // bus values by stand for display (demo default scene numbers; far/farfar)
+      let p50 = vals.p50, p90 = vals.p90;
+      if (n.id === 'bus') {
+        if (state.stand === '近机位') { p50 = 0; p90 = 0; }
+        else if (state.stand === '远远机位') { p50 = 13; p90 = 18; }
+        else { p50 = 6; p90 = 9; }
+      }
+      const source = isHybrid ? (n.hybrid.source || 't3_empirical') : 'excel_default';
+      const sn = isHybrid ? (n.hybrid.n != null ? n.hybrid.n : '—') : '—';
+      const tr = document.createElement('tr');
+      if (!inc) tr.classList.add('off');
+      tr.innerHTML =
+        '<td class="font-mono text-xs">' + n.id + '</td>' +
+        '<td>' + n.name + '</td>' +
+        '<td class="font-mono">' + inc + '</td>' +
+        '<td class="font-mono">' + (inc ? p50 : '—') + '</td>' +
+        '<td class="font-mono">' + (inc ? p90 : '—') + '</td>' +
+        '<td><span class="chip chip-gray">' + source + '</span></td>' +
+        '<td class="font-mono text-xs">' + sn + '</td>' +
+        '<td class="text-xs text-slate-500">' + (n.note || '') + '</td>';
+      body.appendChild(tr);
+    });
+    document.getElementById('includedCount').textContent = count;
+  }
+
+  function renderFlags() {
+    const ul = document.getElementById('flagsList');
+    ul.innerHTML = '';
+    FLAGS_TRUE.forEach(f => {
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-2 rounded border border-amber-200 bg-amber-50/50 px-2.5 py-1.5';
+      li.innerHTML =
+        '<span class="chip chip-amber shrink-0">【未确认】</span>' +
+        '<span><span class="font-mono text-xs text-slate-500">' + f.key + '</span> · ' + f.text + '</span>';
+      ul.appendChild(li);
+    });
+    // missing_nodes as flag footnote
+    const li2 = document.createElement('li');
+    li2.className = 'flex items-start gap-2 rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5';
+    li2.innerHTML =
+      '<span class="chip chip-gray shrink-0">缺项</span>' +
+      '<span><span class="font-mono text-xs text-slate-500">missing_nodes</span> · ["taxi_in","baggage","apm"] 本包无样本、沿用测算器</span>';
+    ul.appendChild(li2);
+  }
+
+  function renderSummary() {
+    const w = Number(document.getElementById('windowMin').value) || 0;
+    state.window_min = w;
+    const mode = state.mode;
+    const sum = SUMMARY[mode];
+    const level = riskOf(w, mode);
+    const meta = RISK_META[level];
+
+    document.getElementById('vP50').textContent = sum.p50_min;
+    document.getElementById('vP90').textContent = sum.p90_min;
+    document.getElementById('vP95').textContent = sum.p95_min;
+    document.getElementById('riskLabel').textContent = level;
+    document.getElementById('riskAction').textContent = meta.action;
+    document.getElementById('riskWindow').textContent = w;
+    document.getElementById('riskSource').textContent = mode;
+    document.getElementById('dispMode').textContent = mode;
+    document.getElementById('riskBanner').style.background = meta.color;
+
+    const le = riskOf(w, 'excel_default');
+    const lh = riskOf(w, 'hybrid_t3');
+    applyChip(document.getElementById('riskExcelChip'), le);
+    applyChip(document.getElementById('riskHybridChip'), lh);
+    document.getElementById('actionExcel').textContent = RISK_META[le].action;
+    document.getElementById('actionHybrid').textContent = RISK_META[lh].action;
+
+    document.getElementById('rowExcel').classList.toggle('bg-blue-50/40', mode === 'excel_default');
+    document.getElementById('rowHybrid').classList.toggle('bg-blue-50/40', mode === 'hybrid_t3');
+
+    document.getElementById('modeExcel').classList.toggle('active', mode === 'excel_default');
+    document.getElementById('modeHybrid').classList.toggle('active', mode === 'hybrid_t3');
+  }
+
+  function renderAll() {
+    renderSummary();
+    renderNodes();
+  }
+
+  function loadDefaults() {
+    state.flow = 'E-D';
+    state.through = '否';
+    state.carry_on_only = '否';
+    state.stand = '远机位';
+    state.ac_type = '窄体';
+    state.seat_zone = '后舱';
+    state.period = '中';
+    state.nation = '外籍';
+    state.window_min = 55;
+    state.mode = 'hybrid_t3';
+    document.getElementById('windowMin').value = 55;
+    setSegValue('flowSeg', state.flow);
+    setSegValue('throughSeg', state.through);
+    setSegValue('carrySeg', state.carry_on_only);
+    setSegValue('standSeg', state.stand);
+    setSegValue('acTypeSeg', state.ac_type);
+    setSegValue('seatSeg', state.seat_zone);
+    setSegValue('periodSeg', state.period);
+    setSegValue('nationSeg', state.nation);
+    callEstimate();
+  }
+
+  bindSeg('flowSeg', 'flow');
+  bindSeg('throughSeg', 'through');
+  bindSeg('carrySeg', 'carry_on_only');
+  bindSeg('standSeg', 'stand');
+  bindSeg('acTypeSeg', 'ac_type');
+  bindSeg('seatSeg', 'seat_zone');
+  bindSeg('periodSeg', 'period');
+  bindSeg('nationSeg', 'nation');
+
+  let _wTimer; document.getElementById('windowMin').addEventListener('input', () => { clearTimeout(_wTimer); _wTimer = setTimeout(() => callEstimate(), 300); });
+  document.getElementById('modeExcel').addEventListener('click', () => { state.mode = 'excel_default'; callEstimate(); });
+  document.getElementById('modeHybrid').addEventListener('click', () => { state.mode = 'hybrid_t3'; callEstimate(); });
+  document.getElementById('btnLoadDefault').addEventListener('click', loadDefaults);
+  document.getElementById('btnRun').addEventListener('click', async () => {
+    const ok = await callEstimate();
+    const toast = document.getElementById('runToast');
+    toast.textContent = ok ? '✓ 已从服务刷新' : '⚠ 已回退本地备案数字';
+    toast.classList.remove('hidden');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => toast.classList.add('hidden'), 2500);
+  });
+
+  renderFlags();
+  loadDefaults();
+  // 启动后自动打一枪演示服（失败则保留备案数字）
+  callEstimate();
+})();
+</script>
+</body>
+</html>

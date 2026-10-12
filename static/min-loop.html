@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>动态 MCT · 最小闭环演示（io_v0.3_draft 决策层）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        ops: { 50:'#f0f7ff', 100:'#e0effe', 800:'#1e3a5f', 900:'#0f2744' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; background:#F1F5F9; }
+  .chip { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.65rem; font-weight:700; line-height:1.2; padding:0.15rem 0.4rem; border-radius:0.25rem; white-space:nowrap; }
+  .chip-amber { background:#FEF3C7; color:#92400E; border:1px solid #F59E0B; }
+  .chip-red { background:#FEE2E2; color:#991B1B; border:1px solid #F87171; }
+  .chip-blue { background:#DBEAFE; color:#1E40AF; border:1px solid #3B82F6; }
+  .chip-gray { background:#F3F4F6; color:#6B7280; border:1px solid #D1D5DB; }
+  .chip-green { background:#DCFCE7; color:#166534; border:1px solid #4ADE80; }
+  .chip-purple { background:#F3E8FF; color:#6B21A8; border:1px solid #C084FC; }
+  .card { background:#fff; border:1px solid #E2E8F0; border-radius:0.5rem; box-shadow:0 1px 2px rgba(15,39,68,.04); }
+  .section-title { font-size:0.65rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#64748B; }
+  .fkey { font-size:0.65rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:#64748B; font-weight:600; }
+  .sticky-badge {
+    position: fixed; right: 0.75rem; bottom: 0.75rem; z-index: 50;
+    background: #0f2744; color: #FEF3C7; font-size: 0.65rem; font-weight: 700;
+    padding: 0.45rem 0.7rem; border-radius: 0.375rem; border: 1px solid #F59E0B;
+    max-width: 22rem; line-height: 1.35; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+  }
+  .tab-btn.active { background:#1e3a5f; color:#fff; border-color:#1e3a5f; }
+  .aud-btn.active { background:#2563EB; color:#fff; border-color:#2563EB; }
+  .ladder-row.offered { border-color:#3B82F6; background:#EFF6FF; }
+  .ladder-row.selected { outline: 2px solid #2563EB; outline-offset: -1px; }
+  .ladder-row.not_applicable { opacity: 0.45; }
+  input[type=radio] { accent-color: #2563EB; }
+  .dense input, .dense select, .dense button { font-size: 0.75rem; }
+</style>
+</head>
+<body class="text-slate-800 dense">
+<!-- 顶栏：页签 + 受众 -->
+<header class="bg-ops-900 text-white px-3 py-2 sticky top-0 z-40 border-b border-ops-800">
+  <div class="flex flex-wrap items-center gap-2 justify-between max-w-[1400px] mx-auto">
+    <div class="flex items-center gap-3">
+      <div>
+        <h1 class="text-sm font-bold leading-tight">动态 MCT · 最小闭环</h1>
+        <p class="text-[10px] text-slate-300 mt-0.5">v0.2 测算 + 前端 v0.3 决策层（quantile_anchor_proxy）· 不改 index.html</p>
+      </div>
+      <nav class="flex gap-1 ml-2" aria-label="页面">
+        <a href="index.html" class="tab-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold hover:bg-ops-800">测算 (index)</a>
+        <span class="tab-btn active px-2.5 py-1 rounded border text-[11px] font-semibold">最小闭环</span>
+      </nav>
+    </div>
+    <div class="flex items-center gap-1" role="tablist" aria-label="受众">
+      <span class="text-[10px] text-slate-400 mr-1">受众</span>
+      <button type="button" data-aud="occ" class="aud-btn active px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">OCC</button>
+      <button type="button" data-aud="一线" class="aud-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">一线</button>
+      <button type="button" data-aud="旅客" class="aud-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">旅客</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1400px] mx-auto p-3 grid grid-cols-12 gap-3">
+  <!-- 左：输入 / 测算 -->
+  
+  <!-- 汇报开场硬钉（当面可见） -->
+  <section class="col-span-12 card p-2.5 border-amber-200 bg-amber-50/80 text-[12px] text-slate-800 leading-relaxed" id="reportOpenBanner">
+    <div class="font-semibold text-amber-900 mb-1">汇报开场（非正式生产演示 · 非投产）</div>
+    <ul class="list-disc pl-4 space-y-0.5">
+      <li>非正式生产演示。几率 = <strong>未校准代理</strong>，不是承诺能赶上；禁止说「保证赶上 / 已校准」。</li>
+      <li>超时策略<strong>【未拍板】</strong>：系统<strong>不会自动改签</strong>；任何自动升预改签路径未启用。</li>
+      <li>界面「推荐」≠ 派单 / 不等于已调度；OCC 角标可见。未映射档（如 L5/L2 独立 id）<strong>勿当已实现</strong>。不绑胖安达开播。</li>
+      <li>S1=20 仅为草案配置 <span class="chip chip-amber">unconfirmed_config</span>，不是已拍板业务阈值。</li>
+    </ul>
+  </section>
+
+<section class="col-span-12 lg:col-span-3 card p-3 space-y-2" id="panelInput">
+    <div class="section-title">输入 · POST /v1/mct/estimate（v0.2 body）</div>
+    <div class="grid grid-cols-2 gap-1.5">
+      <label class="block"><span class="fkey">flow</span>
+        <select id="flow" class="w-full border rounded px-1.5 py-1"><option>E-D</option><option>E-C</option><option>D-D</option></select></label>
+      <label class="block"><span class="fkey">through</span>
+        <select id="through" class="w-full border rounded px-1.5 py-1"><option>否</option><option>是</option></select></label>
+      <label class="block"><span class="fkey">carry_on_only</span>
+        <select id="carry_on_only" class="w-full border rounded px-1.5 py-1"><option>否</option><option>是</option></select></label>
+      <label class="block"><span class="fkey">stand</span>
+        <select id="stand" class="w-full border rounded px-1.5 py-1"><option>远机位</option><option>近机位</option></select></label>
+      <label class="block"><span class="fkey">ac_type</span>
+        <select id="ac_type" class="w-full border rounded px-1.5 py-1"><option>窄体</option><option>宽体</option></select></label>
+      <label class="block"><span class="fkey">seat_zone</span>
+        <select id="seat_zone" class="w-full border rounded px-1.5 py-1"><option>后舱</option><option>中舱</option><option>前舱</option></select></label>
+      <label class="block"><span class="fkey">period</span>
+        <select id="period" class="w-full border rounded px-1.5 py-1"><option>中</option><option>早</option><option>晚</option></select></label>
+      <label class="block"><span class="fkey">nation</span>
+        <select id="nation" class="w-full border rounded px-1.5 py-1"><option>外籍</option><option>中国籍</option></select></label>
+      <label class="block"><span class="fkey">window_min</span>
+        <input id="window_min" type="number" value="55" class="w-full border rounded px-1.5 py-1" /></label>
+      <label class="block"><span class="fkey">mode</span>
+        <select id="mode" class="w-full border rounded px-1.5 py-1"><option value="hybrid_t3">hybrid_t3</option><option value="excel_default">excel_default</option></select></label>
+    </div>
+    <label class="block"><span class="fkey">request_id</span>
+      <input id="request_id" type="text" value="demo-hybrid-55" class="w-full border rounded px-1.5 py-1 font-mono text-[11px]" /></label>
+    <div class="flex gap-1.5">
+      <button type="button" id="btnEstimate" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded py-1.5 text-xs">测算 + 决策层</button>
+      <button type="button" id="btnReset" class="px-2 border rounded text-xs font-semibold bg-slate-50">默认55</button>
+    </div>
+    <p id="apiStatus" class="text-[10px] text-slate-500 font-mono leading-snug">就绪 · 同源 (same-origin)</p>
+    <div class="flex flex-wrap gap-1 pt-1">
+      <span class="chip chip-amber" title="S1 配置">s1_min=20 · unconfirmed_config</span>
+      <span class="chip chip-red">success_prob_not_calibrated</span>
+    </div>
+  </section>
+
+  <!-- 中：决策层主视线 -->
+  <section class="col-span-12 lg:col-span-6 space-y-3" id="panelDecision">
+    <!-- 成功概率 + slack -->
+    <div class="card p-3">
+      <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+        <div class="section-title">决策层 · io_v0.3_draft（前端计算）</div>
+        <div class="flex flex-wrap gap-1">
+          <span class="chip chip-purple occ-line-only" id="chipKind">success_prob_kind=quantile_anchor_proxy</span>
+          <span class="chip chip-red">概率未校准</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div class="rounded border border-slate-200 p-2 bg-slate-50 occ-line-only" id="probBlock">
+          <div class="fkey">success_prob <span class="chip chip-amber">仅 OCC/一线</span></div>
+          <div class="text-2xl font-bold font-mono text-ops-900" id="dispProb">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">代理分 · 未校准 · 对客已拍板可展示·须未校准</div>
+        </div>
+        <div class="rounded border border-slate-200 p-2 bg-slate-50">
+          <div class="fkey">slack_min <span class="text-amber-700">(window−p50)</span></div>
+          <div class="text-2xl font-bold font-mono" id="dispSlack">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">主余量</div>
+        </div>
+        <div class="rounded border border-slate-200 p-2 bg-slate-50">
+          <div class="fkey">slack_p90_min</div>
+          <div class="text-lg font-bold font-mono" id="dispSlack90">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">window−p90</div>
+        </div>
+        <div class="rounded border border-slate-200 p-2 bg-slate-50">
+          <div class="fkey">slack_p95_min</div>
+          <div class="text-lg font-bold font-mono" id="dispSlack95">—</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">window−p95</div>
+        </div>
+      </div>
+      <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+        <div><span class="fkey">p50</span> <span id="dispP50" class="font-mono font-semibold">—</span></div>
+        <div><span class="fkey">p90</span> <span id="dispP90" class="font-mono font-semibold">—</span></div>
+        <div><span class="fkey">p95</span> <span id="dispP95" class="font-mono font-semibold">—</span></div>
+        <div><span class="fkey">window</span> <span id="dispWin" class="font-mono font-semibold">—</span></div>
+      </div>
+      <div id="riskBanner" class="mt-2 rounded px-2.5 py-1.5 text-xs font-semibold text-white bg-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
+        <span>risk_level=<span id="dispRisk">—</span></span>
+        <span>v0.2 action=<span id="dispActionV02">—</span></span>
+        <span>recommended=<span id="dispRec" class="underline">—</span> <span class="opacity-90">（≠派单）</span></span>
+      </div>
+    </div>
+
+    <!-- action_ladder -->
+    <div class="card p-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="section-title">action_ladder · 五档（轻→重）</div>
+        <span class="chip chip-blue" id="chipRecHint">推荐 ≠ 派单 · UI默认=recommended</span>
+      </div>
+      <div id="ladderList" class="space-y-1.5" role="radiogroup" aria-label="干预梯队"></div>
+      <p class="text-[10px] text-slate-500 mt-2 leading-relaxed">
+        推荐规则【草案·未升格】：极高风险且 −s1≤slack_min&lt;0 → <code class="font-mono">dedicated_assist</code>；
+        slack_min &lt; −s1 → <code class="font-mono">pre_rebook</code>。
+        s1=20 为 <strong>【未确认】配置</strong>，不是已定阈值。
+        <strong>推荐高亮 ≠ 派单</strong>；禁止默认选中 pre_rebook，除非 recommended 即该项。
+      </p>
+    </div>
+
+    <!-- 旅客白话结论：余量 + 建议动作；对客可展示 success_prob%·须未校准 -->
+    <div id="paxPlainPanel" class="card p-3 border-purple-200 hidden">
+      <div class="section-title text-purple-800 mb-1">旅客视图 · 白话结论</div>
+      <p class="text-[11px] text-amber-800 mb-2">用户已拍板可对客展示几率；须同框标明「约 / 未校准 / 估算非正式承诺」，禁止「保证赶上」或已校准表述。</p>
+      <p id="paxPlainSummary" class="text-sm text-slate-800 leading-relaxed">—</p>
+      <div id="paxProbFrame" class="mt-2 rounded border border-amber-300 bg-amber-50 px-2.5 py-2 text-sm text-slate-800 leading-relaxed">
+        <div class="font-semibold" id="paxProbMain">—</div>
+        <div class="mt-1 flex flex-wrap gap-1 text-[11px]">
+          <span class="chip chip-amber">约</span>
+          <span class="chip chip-red">未校准</span>
+          <span class="chip chip-purple">quantile_anchor_proxy</span>
+          <span class="chip chip-gray">估算 · 非正式承诺</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 旅客胖安达预留（仅旅客受众） -->
+    <div id="pandaCard" class="card p-3 hidden border-dashed border-2 border-purple-300 bg-purple-50/40">
+      <div class="section-title text-purple-700">胖安达预留 · 渠道占位</div>
+      <div class="flex gap-3 mt-2 items-start">
+        <div class="w-12 h-12 rounded-full bg-purple-200 flex items-center justify-center text-lg shrink-0" aria-hidden="true">🐼</div>
+        <div class="text-xs text-slate-700 space-y-1">
+          <p class="font-semibold">旅客视图气泡槽（头像/文案预留 · 不绑开播 · 几率须带未校准）</p>
+          <p id="pandaText" class="leading-relaxed">—</p>
+          <span class="chip chip-gray">渠道预留 · 未接开播 · 不绑开播</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右：flags + feedback -->
+  <section class="col-span-12 lg:col-span-3 space-y-3" id="panelSide">
+    <div class="card p-3">
+      <div class="section-title mb-1" style="color:#B45309">flags.labels[]（数组逐条）</div>
+      <p class="text-[10px] text-slate-500 mb-2">优先 Array.isArray(labels) · 【未确认】不藏</p>
+      <ul id="flagsLabels" class="space-y-1 text-[11px] max-h-40 overflow-y-auto"></ul>
+      <div class="section-title mt-3 mb-1">v0.3 flags 增补</div>
+      <ul id="flagsV03" class="space-y-1 text-[11px]"></ul>
+    </div>
+
+    <div class="card p-3" id="feedbackPanel">
+      <div class="section-title mb-1">回灌 · POST /v1/mct/feedback</div>
+      <p class="text-[10px] text-slate-500 mb-2">同 request_id · RUN.md §8 · 演示词表 · 只落盘、不改引擎、不派单</p>
+      <label class="block mb-1"><span class="fkey">made_connection</span>
+        <select id="fbMade" class="w-full border rounded px-1.5 py-1"><option value="true">true 成行</option><option value="false">false 未成行</option></select></label>
+      <label class="block mb-1"><span class="fkey">action code</span>
+        <select id="fbAction" class="w-full border rounded px-1.5 py-1 font-mono text-[11px]">
+          <option value="observe">observe</option>
+          <option value="warn_pool">warn_pool</option>
+          <option value="watch_pool">watch_pool</option>
+          <option value="inflight_warn">inflight_warn</option>
+          <option value="dedicated_assist">dedicated_assist</option>
+          <option value="pre_rebook">pre_rebook</option>
+          <option value="rush_transfer">rush_transfer</option>
+          <option value="other">other</option>
+        </select></label>
+      <label class="block mb-1"><span class="fkey">outcome_note</span>
+        <input id="fbNote" type="text" value="演示回灌" class="w-full border rounded px-1.5 py-1" /></label>
+      <button type="button" id="btnFeedback" class="w-full mt-1 bg-ops-800 hover:bg-ops-900 text-white font-semibold rounded py-1.5 text-xs">提交反馈</button>
+      <p id="fbStatus" class="text-[10px] text-slate-500 font-mono mt-1.5 leading-snug">未提交</p>
+    </div>
+
+    <div class="card p-2 text-[10px] text-slate-500 leading-relaxed" id="opsOnlyHint">
+      OCC/一线强制全量 flags；旅客端降术语。本页不改生产角标（index.html 保持原 badge）。
+    </div>
+  </section>
+</main>
+
+<div class="sticky-badge" role="status">最小闭环演示 · 非正式生产 · 概率未校准代理 · 推荐≠派单 · 非投产</div>
+
+<script>
+(function () {
+  const API_BASE = '';
+  const S1_MIN = 20; // unconfirmed_config
+  const S1_STATUS = 'unconfirmed_config';
+
+  const LADDER_DEF = [
+    { rank: 1, id: 'observe', label: '正常衔接，观察', audience: 'ops' },
+    { rank: 2, id: 'watch_pool', label: '进入预警池，准备触达', audience: 'ops' },
+    { rank: 3, id: 'inflight_warn_confirm', label: '飞行中预警 + 落地前方案确认', audience: 'multi' },
+    { rank: 4, id: 'dedicated_assist', label: '专人保障 / 急转协助（仍力争成行）', audience: 'multi' },
+    { rank: 5, id: 'pre_rebook', label: '预改签', audience: 'occ+passenger' }
+  ];
+
+  const V03_FLAGS = {
+    success_prob_not_calibrated: true,
+    s1_unconfirmed: true,
+    rush_transfer_not_separate_rung: true,
+    timeout_auto_escalate_unconfirmed: true
+  };
+
+  let state = {
+    audience: 'occ',
+    lastEstimate: null,
+    v03: null,
+    selectedActionId: null,
+    requestId: 'demo-hybrid-55'
+  };
+
+  function $(id) { return document.getElementById(id); }
+
+  function round1(x) {
+    return Math.round(x * 10) / 10;
+  }
+
+  /** success_prob · EXACT per io_v0.3.fields.json success_prob_rules */
+  function computeSuccessProb(windowMin, p50, p90, p95) {
+    if (windowMin >= p95) return 0.95;
+    if (windowMin >= p90) return 0.90;
+    if (windowMin >= p50) return 0.50;
+    return Math.max(0.05, 0.50 * windowMin / p50);
+  }
+
+  function triggerMatch(id, slack, slack90, slack95, s1) {
+    switch (id) {
+      case 'observe': return slack95 >= 0;
+      case 'watch_pool': return slack90 >= 0 && slack95 < 0;
+      case 'inflight_warn_confirm': return slack >= 0 && slack90 < 0;
+      case 'dedicated_assist': return slack < 0 && slack >= -s1;
+      case 'pre_rebook': return slack < -s1;
+      default: return false;
+    }
+  }
+
+  /**
+   * Build action_ladder statuses + recommended_action_id
+   * Align response_shape: matching + heavier = offered; lighter unmatched = not_applicable
+   * recommendation_rules: 极高 && -s1<=slack<0 → dedicated_assist; slack < -s1 → pre_rebook
+   */
+  function buildLadder(slack, slack90, slack95, s1, riskLevel) {
+    const statuses = {};
+    let matchRank = null;
+    LADDER_DEF.forEach(r => {
+      const hit = triggerMatch(r.id, slack, slack90, slack95, s1);
+      if (hit) matchRank = r.rank;
+    });
+    // If assist band: dedicated offered + pre_rebook still offered (heavier optional)
+    // If pre_rebook band: pre_rebook offered; dedicated may be skipped_lighter_ok or offered for OCC降级
+    LADDER_DEF.forEach(r => {
+      const hit = triggerMatch(r.id, slack, slack90, slack95, s1);
+      if (hit) {
+        statuses[r.id] = 'offered';
+      } else if (matchRank != null && r.rank > matchRank) {
+        statuses[r.id] = 'offered'; // heavier optional
+      } else if (matchRank != null && r.rank < matchRank) {
+        statuses[r.id] = 'not_applicable';
+      } else {
+        statuses[r.id] = 'not_applicable';
+      }
+    });
+
+    let recommended = null;
+    // recommendation_rules (fields.json)
+    if (riskLevel === '极高风险' && -s1 <= slack && slack < 0) {
+      recommended = 'dedicated_assist';
+    } else if (slack < -s1) {
+      recommended = 'pre_rebook';
+    } else {
+      // first offered by rank
+      for (const r of LADDER_DEF) {
+        if (statuses[r.id] === 'offered') { recommended = r.id; break; }
+      }
+    }
+    // ensure recommended is offered
+    if (recommended) statuses[recommended] = 'offered';
+
+    const ladder = LADDER_DEF.map(r => ({
+      ...r,
+      status: statuses[r.id]
+    }));
+    return { ladder, recommended_action_id: recommended };
+  }
+
+  /** Client v0.3 layer EXACTLY per fields.json */
+  function computeV03(summary, windowMin) {
+    const p50 = Number(summary.p50_min);
+    const p90 = Number(summary.p90_min);
+    const p95 = Number(summary.p95_min);
+    const w = windowMin != null ? Number(windowMin) : Number(summary.window_min);
+    const slack_min = w - p50;
+    const slack_p90_min = w - p90;
+    const slack_p95_min = w - p95;
+    const success_prob = computeSuccessProb(w, p50, p90, p95);
+    const success_prob_kind = 'quantile_anchor_proxy'; // ALWAYS
+    const risk = summary.risk_level || '';
+    const { ladder, recommended_action_id } = buildLadder(slack_min, slack_p90_min, slack_p95_min, S1_MIN, risk);
+    return {
+      slack_min,
+      slack_p90_min,
+      slack_p95_min,
+      success_prob,
+      success_prob_kind,
+      recommended_action_id,
+      action_ladder: ladder,
+      config_echo: { s1_min: S1_MIN, s1_status: S1_STATUS },
+      flags_additions: { ...V03_FLAGS }
+    };
+  }
+
+  function riskColor(level) {
+    if (level === '极高风险') return '#B91C1C';
+    if (level === '高风险') return '#C2410C';
+    if (level === '可控') return '#A16207';
+    if (level === '低风险' || level === '低') return '#15803D';
+    return '#475569';
+  }
+
+  function fmtSlack(v) {
+    if (v == null || Number.isNaN(v)) return '—';
+    const r = round1(v);
+    return (r > 0 ? '+' : '') + r.toFixed(1);
+  }
+
+  function renderDecision() {
+    const v = state.v03;
+    const est = state.lastEstimate;
+    if (!v || !est) return;
+    const sum = est.summary || {};
+    $('dispProb').textContent = (v.success_prob * 100).toFixed(2) + '%';
+    $('dispProb').title = String(v.success_prob);
+    const slackEl = $('dispSlack');
+    slackEl.textContent = fmtSlack(v.slack_min);
+    slackEl.className = 'text-2xl font-bold font-mono ' + (v.slack_min < 0 ? 'text-red-700' : 'text-emerald-700');
+    $('dispSlack90').textContent = fmtSlack(v.slack_p90_min);
+    $('dispSlack95').textContent = fmtSlack(v.slack_p95_min);
+    $('dispP50').textContent = Number(sum.p50_min).toFixed(2);
+    $('dispP90').textContent = Number(sum.p90_min).toFixed(2);
+    $('dispP95').textContent = Number(sum.p95_min).toFixed(2);
+    $('dispWin').textContent = String(sum.window_min != null ? sum.window_min : $('window_min').value);
+    $('dispRisk').textContent = sum.risk_level || '—';
+    $('dispActionV02').textContent = sum.action || '—';
+    $('dispRec').textContent = v.recommended_action_id || '—';
+    $('riskBanner').style.background = riskColor(sum.risk_level);
+    $('chipKind').textContent = 'success_prob_kind=' + v.success_prob_kind;
+
+    // ladder radios — default = recommended_action_id ONLY
+    const list = $('ladderList');
+    list.innerHTML = '';
+    if (!state.selectedActionId) {
+      state.selectedActionId = v.recommended_action_id;
+    }
+    // NEVER default to pre_rebook unless recommended is that
+    if (state.selectedActionId === 'pre_rebook' && v.recommended_action_id !== 'pre_rebook') {
+      state.selectedActionId = v.recommended_action_id;
+    }
+    v.action_ladder.forEach(r => {
+      const row = document.createElement('label');
+      row.className = 'ladder-row flex items-start gap-2 border rounded px-2 py-1.5 cursor-pointer text-xs ' + r.status +
+        (state.selectedActionId === r.id ? ' selected' : '');
+      const disabled = r.status === 'not_applicable';
+      row.innerHTML =
+        '<input type="radio" name="ladder" value="' + r.id + '" class="mt-0.5" ' +
+        (state.selectedActionId === r.id ? 'checked ' : '') + (disabled ? 'disabled ' : '') + '/>' +
+        '<div class="flex-1 min-w-0">' +
+        '<div class="flex flex-wrap items-center gap-1">' +
+        '<span class="font-semibold">#' + r.rank + ' ' + r.label + '</span>' +
+        '<span class="chip chip-gray font-mono">' + r.id + '</span>' +
+        '<span class="chip ' + (r.status === 'offered' ? 'chip-blue' : 'chip-gray') + '">' + r.status + '</span>' +
+        (r.id === v.recommended_action_id ? '<span class="chip chip-green">推荐(≠派单)</span>' : '') +
+        '</div>' +
+        '<div class="text-[10px] text-slate-500 mt-0.5">audience=' + r.audience + (r.id === v.recommended_action_id ? ' · 推荐仅界面建议，未派单' : '') + '</div>' +
+        '</div>';
+      const input = row.querySelector('input');
+      input.addEventListener('change', () => {
+        state.selectedActionId = r.id;
+        renderDecision();
+      });
+      list.appendChild(row);
+    });
+
+    // sync feedback action select toward recommended (demo)
+    const fb = $('fbAction');
+    if (fb && v.recommended_action_id) {
+      const map = { inflight_warn_confirm: 'inflight_warn', watch_pool: 'watch_pool' };
+      const code = map[v.recommended_action_id] || v.recommended_action_id;
+      if ([].some.call(fb.options, o => o.value === code)) fb.value = code;
+    }
+
+    // 旅客/胖安达：用户拍板可展示几率%；同框强制「约/未校准/proxy/非正式承诺」；禁止保证赶上
+    const pct = Math.round(v.success_prob * 100);
+    const slackTxt = v.slack_min < 0
+      ? ('按当前衔接窗口，相对常见行程节奏大约还紧 ' + Math.abs(round1(v.slack_min)).toFixed(1) + ' 分钟')
+      : ('按当前衔接窗口，相对常见行程节奏大约还宽裕 ' + round1(v.slack_min).toFixed(1) + ' 分钟');
+    const actLabel = (LADDER_DEF.find(x => x.id === v.recommended_action_id) || {}).label || '观察';
+    const paxProbLine = '改次/本次行程中转成功几率约为 ' + pct + '%';
+    const paxDisclaimer = '（约 · 未校准 · quantile_anchor_proxy · 估算、非正式承诺；不能理解为保证赶上）';
+    $('pandaText').textContent = paxProbLine + paxDisclaimer + ' ' + slackTxt + '。建议下一步：' + actLabel + '。';
+    const paxSum = $('paxPlainSummary');
+    if (paxSum) {
+      paxSum.textContent = slackTxt + '。工作人员建议：' + actLabel + '。';
+    }
+    const paxProbMain = $('paxProbMain');
+    if (paxProbMain) {
+      paxProbMain.textContent = paxProbLine;
+    }
+
+    applyAudience();
+  }
+
+  function renderFlags(flags) {
+    const ul = $('flagsLabels');
+    ul.innerHTML = '';
+    if (!flags || typeof flags !== 'object') {
+      ul.innerHTML = '<li class="text-slate-400">无 flags</li>';
+    } else {
+      const labels = Array.isArray(flags.labels) ? flags.labels : null;
+      if (labels) {
+        if (labels.length === 0) {
+          ul.innerHTML = '<li class="text-slate-400">labels[] 空</li>';
+        } else {
+          labels.forEach(t => {
+            const li = document.createElement('li');
+            li.className = 'border-l-2 border-amber-400 pl-2 text-slate-700';
+            li.textContent = String(t);
+            ul.appendChild(li);
+          });
+        }
+      } else {
+        const li = document.createElement('li');
+        li.className = 'text-amber-700';
+        li.textContent = '【注意】响应无 labels 数组；下方仅布尔键回退';
+        ul.appendChild(li);
+        Object.keys(flags).forEach(k => {
+          if (k === 'labels') return;
+          const li2 = document.createElement('li');
+          li2.className = 'font-mono text-slate-600';
+          li2.textContent = k + '=' + JSON.stringify(flags[k]);
+          ul.appendChild(li2);
+        });
+      }
+    }
+    const ul3 = $('flagsV03');
+    ul3.innerHTML = '';
+    Object.keys(V03_FLAGS).forEach(k => {
+      const li = document.createElement('li');
+      li.className = 'flex items-center gap-1';
+      li.innerHTML = '<span class="chip chip-red font-mono">' + k + '=true</span>';
+      ul3.appendChild(li);
+    });
+    // s1 chip already in input; echo
+    const liS1 = document.createElement('li');
+    liS1.innerHTML = '<span class="chip chip-amber">s1_min=20 · ' + S1_STATUS + '</span>';
+    ul3.appendChild(liS1);
+  }
+
+  function applyAudience() {
+    const a = state.audience;
+    document.querySelectorAll('.aud-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-aud') === a);
+    });
+    const panda = $('pandaCard');
+    const fb = $('feedbackPanel');
+    const input = $('panelInput');
+    const paxPanel = $('paxPlainPanel');
+    const isPax = a === '旅客';
+    // OCC/一线：决策区 success_prob% + kind；旅客：用 paxProbFrame 展示几率%（已拍板·须未校准），隐藏 OCC 决策区百分数块
+    document.querySelectorAll('.occ-line-only').forEach(el => {
+      el.classList.toggle('hidden', isPax);
+    });
+    if (paxPanel) paxPanel.classList.toggle('hidden', !isPax);
+    if (isPax) {
+      panda.classList.remove('hidden');
+      fb.classList.add('hidden');
+      input.classList.add('hidden');
+    } else {
+      panda.classList.add('hidden');
+      fb.classList.remove('hidden');
+      if (a === '一线') input.classList.add('hidden');
+      else input.classList.remove('hidden');
+      input.classList.remove('opacity-60');
+    }
+  }
+
+  function bodyFromForm() {
+    return {
+      flow: $('flow').value,
+      through: $('through').value,
+      carry_on_only: $('carry_on_only').value,
+      stand: $('stand').value,
+      ac_type: $('ac_type').value,
+      seat_zone: $('seat_zone').value,
+      period: $('period').value,
+      nation: $('nation').value,
+      window_min: Number($('window_min').value),
+      mode: $('mode').value,
+      request_id: $('request_id').value || 'demo-hybrid-55'
+    };
+  }
+
+  async function callEstimate() {
+    const body = bodyFromForm();
+    state.requestId = body.request_id;
+    state.selectedActionId = null; // reset so UI defaults to recommended
+    $('apiStatus').textContent = '请求中… POST /v1/mct/estimate';
+    $('apiStatus').classList.add('text-blue-600');
+    try {
+      const res = await fetch(API_BASE + '/v1/mct/estimate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(JSON.stringify(data));
+      state.lastEstimate = data;
+      const sum = data.summary || {};
+      const w = sum.window_min != null ? sum.window_min : body.window_min;
+      state.v03 = computeV03(sum, w);
+      $('apiStatus').textContent = 'OK · request_id=' + (data.request_id || body.request_id) +
+        ' · slack_min=' + round1(state.v03.slack_min).toFixed(1) +
+        ' · p=' + state.v03.success_prob.toFixed(4) +
+        ' · rec=' + state.v03.recommended_action_id;
+      $('apiStatus').classList.remove('text-blue-600');
+      renderDecision();
+      renderFlags(data.flags);
+    } catch (e) {
+      $('apiStatus').textContent = '失败: ' + e.message + ' · 可离线用金标演示';
+      $('apiStatus').classList.add('text-red-600');
+      // offline golden hybrid fallback so UI still demos default numbers
+      offlineGolden(body);
+    }
+  }
+
+  function offlineGolden(body) {
+    const mode = (body && body.mode) || 'hybrid_t3';
+    const w = (body && body.window_min) != null ? Number(body.window_min) : 55;
+    const golden = mode === 'excel_default'
+      ? { p50_min: 72, p90_min: 97, p95_min: 104.13 }
+      : { p50_min: 74.4, p90_min: 94.22, p95_min: 99.87 };
+    // risk vs window (simple mirror of common demo)
+    let risk = '极高风险';
+    let action = '预改签 / 急转 / 专人保障';
+    if (w >= golden.p95_min) { risk = '低风险'; action = '正常衔接，观察'; }
+    else if (w >= golden.p90_min) { risk = '可控'; action = '进入预警池'; }
+    else if (w >= golden.p50_min) { risk = '高风险'; action = '飞行中预警'; }
+    const data = {
+      request_id: (body && body.request_id) || 'demo-hybrid-55',
+      mode: mode,
+      summary: {
+        ...golden,
+        window_min: w,
+        risk_level: risk,
+        action: action
+      },
+      flags: {
+        labels: [
+          '【离线金标】服务未达 · 使用演示分位',
+          '默认 window_min=55 来自测算器，非 T3 包字段',
+          '【未确认】窗口相对截载/关舱时钟'
+        ]
+      }
+    };
+    state.lastEstimate = data;
+    state.v03 = computeV03(data.summary, w);
+    renderDecision();
+    renderFlags(data.flags);
+  }
+
+  async function callFeedback() {
+    const rid = state.requestId || $('request_id').value;
+    const est = state.lastEstimate || {};
+    const sum = est.summary || {};
+    const v = state.v03 || {};
+    const now = new Date();
+    const isoLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().replace('Z', '+08:00');
+    // Shanghai-ish display; server accepts ISO
+    const recorded = now.toISOString().replace(/\.\d{3}Z$/, '+08:00'); // best-effort
+    const payload = {
+      request_id: rid,
+      recorded_at: recorded,
+      outcome: {
+        made_connection: $('fbMade').value === 'true',
+        outcome_note: $('fbNote').value || '演示回灌'
+      },
+      actions_taken: [
+        {
+          code: $('fbAction').value,
+          label: $('fbAction').selectedOptions[0].text,
+          at: recorded
+        }
+      ],
+      timestamps: {
+        in_ata: null,
+        out_atd_or_gate_close: null,
+        connection_declared_at: recorded
+      },
+      pax_key: 'demo-pax-min-loop',
+      estimate_echo: {
+        mode: est.mode || $('mode').value,
+        window_min: sum.window_min != null ? sum.window_min : Number($('window_min').value),
+        risk_level: sum.risk_level || null,
+        p50_min: sum.p50_min,
+        p90_min: sum.p90_min,
+        p95_min: sum.p95_min,
+        recommended_action_id: v.recommended_action_id,
+        success_prob: v.success_prob,
+        success_prob_kind: v.success_prob_kind
+      },
+      source: 'occ_min_loop_ui',
+      operator_note: '【演示】最小闭环页回灌 · 非生产记录'
+    };
+    $('fbStatus').textContent = '提交中…';
+    try {
+      const res = await fetch(API_BASE + '/v1/mct/feedback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data === 'object' ? JSON.stringify(data) : String(data));
+      $('fbStatus').textContent = 'OK · ' + JSON.stringify(data).slice(0, 180);
+      $('fbStatus').classList.remove('text-red-600');
+    } catch (e) {
+      $('fbStatus').textContent = '失败: ' + e.message;
+      $('fbStatus').classList.add('text-red-600');
+    }
+  }
+
+  function resetDefault() {
+    $('flow').value = 'E-D';
+    $('through').value = '否';
+    $('carry_on_only').value = '否';
+    $('stand').value = '远机位';
+    $('ac_type').value = '窄体';
+    $('seat_zone').value = '后舱';
+    $('period').value = '中';
+    $('nation').value = '外籍';
+    $('window_min').value = '55';
+    $('mode').value = 'hybrid_t3';
+    $('request_id').value = 'demo-hybrid-55';
+    callEstimate();
+  }
+
+  $('btnEstimate').addEventListener('click', callEstimate);
+  $('btnReset').addEventListener('click', resetDefault);
+  $('btnFeedback').addEventListener('click', callFeedback);
+  document.querySelectorAll('.aud-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      state.audience = b.getAttribute('data-aud');
+      applyAudience();
+    });
+  });
+
+  // auto-run default hybrid 55
+  resetDefault();
+})();
+</script>
+</body>
+</html>
