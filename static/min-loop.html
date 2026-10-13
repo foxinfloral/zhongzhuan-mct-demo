@@ -84,7 +84,7 @@ tailwind.config = {
     <div class="font-semibold text-amber-900 mb-1">汇报开场（非正式生产演示 · 非投产）</div>
     <ul class="list-disc pl-4 space-y-0.5">
       <li>非正式生产演示。几率 = <strong>未校准代理</strong>，不是承诺能赶上；禁止说「保证赶上 / 已校准」。</li>
-      <li>超时策略<strong>【未拍板】</strong>：系统<strong>不会自动改签</strong>；任何自动升预改签路径未启用。</li>
+      <li>超时策略<strong>【未人工确认】</strong>：系统<strong>不会自动改签</strong>；任何自动升预改签路径未启用。</li>
       <li>界面「推荐」≠ 派单 / 不等于已调度；OCC 角标可见。未映射档（如 L5/L2 独立 id）<strong>勿当已实现</strong>。不绑数字主播开播。</li>
       <li>S1=20 仅为草案配置 <span class="chip chip-amber">unconfirmed_config</span>，不是已拍板业务阈值。</li>
     </ul>
@@ -121,7 +121,7 @@ tailwind.config = {
     <div class="flex gap-1.5">
       <button type="button" id="btnEstimate" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded py-1.5 text-xs">测算 + 决策层</button>
       <!-- 演示默认场景填入按钮（FE3，已过闸）：只填入默认值，需手动点测算 -->
-      <button type="button" id="btnReset" class="px-2 border border-amber-400 rounded text-[11px] font-semibold bg-amber-50" title="提案·待确认：只填入，不自动测算">填入演示默认场景</button>
+      <button type="button" id="btnReset" class="px-2 border border-amber-400 rounded text-[11px] font-semibold bg-amber-50" title="只填入，不自动测算">填入演示默认场景</button>
       <span class="text-[11px] text-slate-600">演示默认，不代表真实旅客</span>
     </div>
     <p id="apiStatus" class="text-[10px] text-slate-500 font-mono leading-snug" role="status" aria-live="polite">待测算 · 请完整填写全部必填项</p>
