@@ -75,7 +75,7 @@ tailwind.config = {
     <ul class="list-disc pl-4 space-y-0.5">
       <li>非正式生产演示。几率 = <strong>未校准代理</strong>，不是承诺能赶上；禁止说「保证赶上 / 已校准」。</li>
       <li>超时策略<strong>【未拍板】</strong>：系统<strong>不会自动改签</strong>；任何自动升预改签路径未启用。</li>
-      <li>界面「推荐」≠ 派单 / 不等于已调度；OCC 角标可见。未映射档（如 L5/L2 独立 id）<strong>勿当已实现</strong>。不绑胖安达开播。</li>
+      <li>界面「推荐」≠ 派单 / 不等于已调度；OCC 角标可见。未映射档（如 L5/L2 独立 id）<strong>勿当已实现</strong>。不绑数字主播开播。</li>
       <li>S1=20 仅为草案配置 <span class="chip chip-amber">unconfirmed_config</span>，不是已拍板业务阈值。</li>
     </ul>
   </section>
@@ -110,7 +110,7 @@ tailwind.config = {
       <button type="button" id="btnEstimate" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded py-1.5 text-xs">测算 + 决策层</button>
       <button type="button" id="btnReset" class="px-2 border rounded text-xs font-semibold bg-slate-50">默认55</button>
     </div>
-    <p id="apiStatus" class="text-[10px] text-slate-500 font-mono leading-snug">就绪 · 同源 (same-origin)</p>
+    <p id="apiStatus" class="text-[10px] text-slate-500 font-mono leading-snug">就绪 · 本站演示服务</p>
     <div class="flex flex-wrap gap-1 pt-1">
       <span class="chip chip-amber" title="S1 配置">s1_min=20 · unconfirmed_config</span>
       <span class="chip chip-red">success_prob_not_calibrated</span>
@@ -194,9 +194,9 @@ tailwind.config = {
       </div>
     </div>
 
-    <!-- 旅客胖安达预留（仅旅客受众） -->
+    <!-- 旅客数字主播预留（仅旅客受众） -->
     <div id="pandaCard" class="card p-3 hidden border-dashed border-2 border-purple-300 bg-purple-50/40">
-      <div class="section-title text-purple-700">胖安达预留 · 渠道占位</div>
+      <div class="section-title text-purple-700">对客播报渠道预留 · 渠道占位</div>
       <div class="flex gap-3 mt-2 items-start">
         <div class="w-12 h-12 rounded-full bg-purple-200 flex items-center justify-center text-lg shrink-0" aria-hidden="true">🐼</div>
         <div class="text-xs text-slate-700 space-y-1">
@@ -220,7 +220,7 @@ tailwind.config = {
 
     <div class="card p-3" id="feedbackPanel">
       <div class="section-title mb-1">回灌 · POST /v1/mct/feedback</div>
-      <p class="text-[10px] text-slate-500 mb-2">同 request_id · RUN.md §8 · 演示词表 · 只落盘、不改引擎、不派单</p>
+      <p class="text-[10px] text-slate-500 mb-2">同 request_id · 回灌接口说明 · 演示词表 · 只落盘、不改引擎、不派单</p>
       <label class="block mb-1"><span class="fkey">made_connection</span>
         <select id="fbMade" class="w-full border rounded px-1.5 py-1"><option value="true">true 成行</option><option value="false">false 未成行</option></select></label>
       <label class="block mb-1"><span class="fkey">action code</span>
@@ -408,7 +408,7 @@ tailwind.config = {
     $('dispP95').textContent = Number(sum.p95_min).toFixed(2);
     $('dispWin').textContent = String(sum.window_min != null ? sum.window_min : $('window_min').value);
     $('dispRisk').textContent = sum.risk_level || '—';
-    $('dispActionV02').textContent = sum.action || '—';
+    $('dispActionV02').textContent = ((sum.action === '预改签 / 急转 / 专人保障' || sum.action === '专人保障（急转）/ 预改签') ? '专人保障（急转）/ 预改签 · 推荐≠派单 · 不自动执行' : sum.action) || '—';
     $('dispRec').textContent = v.recommended_action_id || '—';
     $('riskBanner').style.background = riskColor(sum.risk_level);
     $('chipKind').textContent = 'success_prob_kind=' + v.success_prob_kind;
@@ -456,7 +456,7 @@ tailwind.config = {
       if ([].some.call(fb.options, o => o.value === code)) fb.value = code;
     }
 
-    // 旅客/胖安达：用户拍板可展示几率%；同框强制「约/未校准/proxy/非正式承诺」；禁止保证赶上
+    // 旅客/数字主播：用户拍板可展示几率%；同框强制「约/未校准/proxy/非正式承诺」；禁止保证赶上
     const pct = Math.round(v.success_prob * 100);
     const slackTxt = v.slack_min < 0
       ? ('按当前衔接窗口，相对常见行程节奏大约还紧 ' + Math.abs(round1(v.slack_min)).toFixed(1) + ' 分钟')
@@ -608,7 +608,7 @@ tailwind.config = {
       : { p50_min: 74.4, p90_min: 94.22, p95_min: 99.87 };
     // risk vs window (simple mirror of common demo)
     let risk = '极高风险';
-    let action = '预改签 / 急转 / 专人保障';
+    let action = '专人保障（急转）/ 预改签'; // 离线兜底：与 displayAction 同序；仅文案
     if (w >= golden.p95_min) { risk = '低风险'; action = '正常衔接，观察'; }
     else if (w >= golden.p90_min) { risk = '可控'; action = '进入预警池'; }
     else if (w >= golden.p50_min) { risk = '高风险'; action = '飞行中预警'; }

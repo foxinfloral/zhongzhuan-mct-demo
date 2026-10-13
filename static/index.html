@@ -72,13 +72,13 @@ tailwind.config = {
         <div class="flex items-center gap-2 flex-wrap">
           <h1 class="text-base sm:text-lg font-bold tracking-tight">动态 MCT 小模型 · OCC 演示</h1>
           <span class="chip chip-proto">原型</span>
-          <span class="chip chip-yellow">对齐小喜 io_v0.2</span>
+          <span class="chip chip-yellow">对齐 io_v0.2 字段约定</span>
         </div>
-        <p class="text-xs text-slate-300 mt-0.5">字段 key 对齐小喜 io_v0.2 · API：POST 同源 (same-origin)/v1/mct/estimate（演示服务已接）</p>
+        <p class="text-xs text-slate-300 mt-0.5">字段 key 对齐 io_v0.2 字段约定 · API：POST /v1/mct/estimate（本站演示服务）</p>
       </div>
     </div>
     <div class="text-[11px] sm:text-xs text-amber-100 bg-amber-500/15 border border-amber-400/40 rounded px-2.5 py-1.5 max-w-lg leading-snug">
-      <strong>免责声明：</strong>本页使用回传示例数据，不调用真实引擎；【未确认】/【争议】项不得视为已拍板默认事实；非正式交付。
+      <strong>免责声明：</strong>本页调用本站演示服务（非生产引擎）；【未确认】/【争议】项不得视为已拍板默认事实；非正式交付。
     </div>
   </div>
 </header>
@@ -93,7 +93,7 @@ tailwind.config = {
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <div class="section-title">B · 场景输入</div>
-          <p class="text-sm font-semibold text-slate-800 mt-0.5">对齐小喜 io_v0.2 · 测算器 B5–B13</p>
+          <p class="text-sm font-semibold text-slate-800 mt-0.5">对齐 io_v0.2 字段约定 · 测算器 B5–B13</p>
         </div>
         <button id="btnLoadDefault" type="button"
           class="text-sm font-semibold px-3 py-1.5 rounded border border-blue-600 text-blue-700 bg-blue-50 hover:bg-blue-100 transition">
@@ -108,7 +108,7 @@ tailwind.config = {
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="label">流向</span>
             <span class="fkey">flow</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】I转D 是否等同 E-D；E-C 本包几乎无实测样本</span>
           </div>
           <div class="seg" id="flowSeg" role="group" aria-label="flow">
@@ -123,7 +123,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">通程</span>
             <span class="fkey">through</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
           <div class="seg" id="throughSeg">
             <button type="button" data-val="是">是</button>
@@ -136,7 +136,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">免提</span>
             <span class="fkey">carry_on_only</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【争议】行李是否入引擎</span>
           </div>
           <div class="seg" id="carrySeg">
@@ -151,7 +151,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">机位</span>
             <span class="fkey">stand</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
           <div class="seg" id="standSeg">
             <button type="button" data-val="近机位">近机位</button>
@@ -165,7 +165,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">机型</span>
             <span class="fkey">ac_type</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
           <div class="seg" id="acTypeSeg">
             <button type="button" data-val="窄体" class="active">窄体</button>
@@ -178,7 +178,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">舱位</span>
             <span class="fkey">seat_zone</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】与实测座位号切分对应</span>
           </div>
           <div class="seg" id="seatSeg">
@@ -193,7 +193,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">时段</span>
             <span class="fkey">period</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】时钟切分</span>
           </div>
           <div class="seg" id="periodSeg">
@@ -209,7 +209,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">旅客国籍</span>
             <span class="fkey">nation</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】空白国籍是否=国内</span>
           </div>
           <div class="seg" id="nationSeg">
@@ -223,7 +223,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">可用窗口</span>
             <span class="fkey">window_min</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】可用窗口时钟</span>
           </div>
           <div class="flex items-center gap-2">
@@ -239,7 +239,7 @@ tailwind.config = {
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
             <span class="label">引擎模式</span>
             <span class="fkey">mode</span>
-            <span class="fkey-hint">对齐小喜 io_v0.2</span>
+            <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
           <div class="flex gap-1 flex-wrap">
             <button type="button" id="modeExcel" class="src-tab px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50">excel_default</button>
@@ -296,7 +296,7 @@ tailwind.config = {
           <span class="text-sm text-slate-600">超时自动执行</span>
           <span class="toggle locked" title="策略未拍板" aria-disabled="true"></span>
         </div>
-        <p class="text-[11px] text-amber-800 mt-2 font-medium">Word 与 PPT 冲突 · 策略未拍板 · 开关已禁用 · 本版不实现</p>
+        <p class="text-[11px] text-amber-800 mt-2 font-medium">Word 与业务口径冲突 · 策略未拍板 · 开关已禁用 · 本版不实现</p>
       </div>
 
       <!-- 降级静态 MCT 灰显 -->
@@ -330,7 +330,8 @@ tailwind.config = {
       <div>
         <div class="text-xs font-semibold uppercase tracking-wider opacity-90">risk_level（相对 window_min · 窗口 vs 分位）</div>
         <div class="text-2xl font-black tracking-tight" id="riskLabel">极高风险</div>
-        <div class="text-sm mt-1 opacity-95" id="riskAction">预改签 / 急转 / 专人保障</div>
+        <div class="text-sm mt-1 opacity-95" id="riskAction">专人保障（急转）/ 预改签</div>
+        <div class="text-xs mt-0.5 opacity-90 font-semibold">推荐≠派单 · 不自动执行</div>
       </div>
       <div class="text-right text-sm opacity-95 font-mono">
         <div>window_min=<span id="riskWindow">55</span></div>
@@ -360,7 +361,7 @@ tailwind.config = {
         <p class="text-[11px] text-slate-400 mt-1">测算器无 P99 行 · 不输出</p>
       </div>
     </div>
-    <p class="text-[11px] text-slate-500 mt-3">风险规则（io_v0.2 §4）：窗≥P95 低风险；≥P90 可控风险；≥P50 高风险；否则极高风险。PPT 另有 S1–S4 / P99=等级写法 — <strong>另两套未接入</strong>。</p>
+    <p class="text-[11px] text-slate-500 mt-3">风险规则（io_v0.2 §4）：窗≥P95 低风险；≥P90 可控风险；≥P50 高风险；否则极高风险。业务口径另有 S1–S4 / P99=等级写法 — <strong>另两套未接入</strong>。</p>
   </section>
 
   <!-- E. 基线对照 + 节点表 -->
@@ -391,7 +392,7 @@ tailwind.config = {
           <td class="font-mono">97</td>
           <td class="font-mono">104.13</td>
           <td><span id="riskExcelChip" class="chip">极高风险</span></td>
-          <td class="text-xs" id="actionExcel">预改签 / 急转 / 专人保障</td>
+          <td class="text-xs" id="actionExcel">专人保障（急转）/ 预改签</td>
         </tr>
         <tr id="rowHybrid" class="bg-blue-50/40">
           <td class="font-semibold font-mono text-sm">hybrid_t3</td>
@@ -399,7 +400,7 @@ tailwind.config = {
           <td class="font-mono">94.22</td>
           <td class="font-mono">99.87</td>
           <td><span id="riskHybridChip" class="chip">极高风险</span></td>
-          <td class="text-xs" id="actionHybrid">预改签 / 急转 / 专人保障</td>
+          <td class="text-xs" id="actionHybrid">专人保障（急转）/ 预改签</td>
         </tr>
       </tbody>
     </table>
@@ -441,7 +442,7 @@ tailwind.config = {
           <span class="chip chip-amber">【争议】</span>
           <span class="text-sm font-bold text-slate-800">风险三套语言</span>
         </div>
-        <p class="text-xs text-slate-600 leading-relaxed">本小模型只实现「窗口 vs 分位」一套。PPT 另有 S1–S4 场景分位与「P50/P90/P95/P99=风险等级」写法 — <strong>另两套未接入</strong>。</p>
+        <p class="text-xs text-slate-600 leading-relaxed">本小模型只实现「窗口 vs 分位」一套。业务口径另有 S1–S4 场景分位与「P50/P90/P95/P99=风险等级」写法 — <strong>另两套未接入</strong>。</p>
       </div>
       <div class="rounded border border-amber-300 bg-amber-50/70 p-3">
         <div class="flex items-center gap-2 flex-wrap mb-1">
@@ -455,7 +456,7 @@ tailwind.config = {
           <span class="chip chip-amber">【争议】</span>
           <span class="text-sm font-bold text-slate-800">超时人工 vs 自动</span>
         </div>
-        <p class="text-xs text-slate-600 leading-relaxed">Word 与 PPT 冲突 → 未拍板。界面：禁用开关 +「策略未拍板」。本版不实现超时自动执行。</p>
+        <p class="text-xs text-slate-600 leading-relaxed">Word 与业务口径冲突 → 未拍板。界面：禁用开关 +「策略未拍板」。本版不实现超时自动执行。</p>
       </div>
       <div class="rounded border border-amber-300 bg-amber-50/70 p-3">
         <div class="flex items-center gap-2 flex-wrap mb-1">
@@ -511,10 +512,13 @@ tailwind.config = {
 </main>
 
 <!-- 持久角标 -->
-<div class="sticky-badge" role="status">演示可跑 · 服务闸已过 · 对齐 io_v0.2 · 非正式生产</div>
+<div class="sticky-badge" role="status">非正式生产 · 决策辅助演示 · 未上线 · 对齐 io_v0.2</div>
 
 <script>
 (function () {
+  /** 前端展示重排：引擎 summary.action 不改，仅界面显示顺序调整（专人保障与急转同档，预改签不居首） */
+  function displayAction(a) { return a === '预改签 / 急转 / 专人保障' ? '专人保障（急转）/ 预改签' : a; }
+
   /** 默认场景回传示例 — 仅展示用，不发明公式 */
   const SUMMARY = {
     excel_default: { p50_min: 72, p90_min: 97, p95_min: 104.13 },
@@ -525,7 +529,7 @@ tailwind.config = {
     '低风险':   { color: '#16A34A', chipBg: '#DCFCE7', chipFg: '#166534', chipBd: '#16A34A', action: '正常衔接，观察' },
     '可控风险': { color: '#CA8A04', chipBg: '#FEF9C3', chipFg: '#854D0E', chipBd: '#CA8A04', action: '进入预警池，准备触达' },
     '高风险':   { color: '#EA580C', chipBg: '#FFEDD5', chipFg: '#9A3412', chipBd: '#EA580C', action: '飞行中预警 + 落地前方案确认' },
-    '极高风险': { color: '#DC2626', chipBg: '#FEE2E2', chipFg: '#991B1B', chipBd: '#DC2626', action: '预改签 / 急转 / 专人保障' }
+    '极高风险': { color: '#DC2626', chipBg: '#FEE2E2', chipFg: '#991B1B', chipBd: '#DC2626', action: '专人保障（急转）/ 预改签' }
   };
 
   /** 默认场景节点表（io_v0.2 §3） */
@@ -647,7 +651,7 @@ tailwind.config = {
     };
 
     const level = sum.risk_level || riskOf(state.window_min, mode);
-    const action = sum.action || (RISK_META[level] && RISK_META[level].action) || '';
+    const action = displayAction(sum.action) || (RISK_META[level] && RISK_META[level].action) || '';
     const meta = RISK_META[level] || RISK_META['极高风险'];
 
     document.getElementById('vP50').textContent = sum.p50_min;
@@ -666,7 +670,7 @@ tailwind.config = {
     if (data.compare && data.compare.excel_default) {
       const le = data.compare.excel_default.risk_level || riskOf(w, 'excel_default');
       applyChip(document.getElementById('riskExcelChip'), le);
-      document.getElementById('actionExcel').textContent = data.compare.excel_default.action || RISK_META[le].action;
+      document.getElementById('actionExcel').textContent = displayAction(data.compare.excel_default.action) || RISK_META[le].action;
       document.getElementById('cmpExcelP50') && (document.getElementById('cmpExcelP50').textContent = data.compare.excel_default.p50_min);
     } else {
       const le = riskOf(w, 'excel_default');
@@ -676,7 +680,7 @@ tailwind.config = {
     if (data.compare && data.compare.hybrid_t3) {
       const lh = data.compare.hybrid_t3.risk_level || riskOf(w, 'hybrid_t3');
       applyChip(document.getElementById('riskHybridChip'), lh);
-      document.getElementById('actionHybrid').textContent = data.compare.hybrid_t3.action || RISK_META[lh].action;
+      document.getElementById('actionHybrid').textContent = displayAction(data.compare.hybrid_t3.action) || RISK_META[lh].action;
     } else {
       const lh = riskOf(w, 'hybrid_t3');
       applyChip(document.getElementById('riskHybridChip'), lh);
