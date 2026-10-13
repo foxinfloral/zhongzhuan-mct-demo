@@ -13,7 +13,7 @@ from mct_service.app import app  # noqa: E402
 _STATIC = Path(__file__).resolve().parent / "static"
 
 
-@app.get("/", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def _root():
     return RedirectResponse(url="/min-loop.html", status_code=307)
 

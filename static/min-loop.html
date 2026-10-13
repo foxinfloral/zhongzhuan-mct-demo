@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>动态 MCT · 最小闭环演示（io_v0.3_draft 决策层）</title>
+<title>动态 MCT · 最小闭环演示（estimate 契约 io_v0.2 · 决策层 v0.3 设计稿、未开实现闸）</title>
+<!-- favicon：内联 data URI（源文件 static/favicon.svg；后端未加路由） -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230f2744%22/%3E%3Ctext x=%2216%22 y=%2221%22 font-family=%22Arial,sans-serif%22 font-size=%2212%22 font-weight=%22700%22 fill=%22%2393c5fd%22 text-anchor=%22middle%22%3EMCT%3C/text%3E%3C/svg%3E" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 tailwind.config = {
@@ -41,6 +43,13 @@ tailwind.config = {
   .ladder-row.not_applicable { opacity: 0.45; }
   input[type=radio] { accent-color: #2563EB; }
   .dense input, .dense select, .dense button { font-size: 0.75rem; }
+  *:focus-visible { outline:3px solid #2563EB !important; outline-offset:2px !important; }
+  .state-fallback { outline:2px dashed #D97706; outline-offset:2px; }
+  .state-invalid { outline:2px dashed #B91C1C; outline-offset:2px; }
+  .state-stale { opacity:0.4; filter:grayscale(0.6); }
+  .risk-dark { color:#111827 !important; }
+  .risk-dark * { opacity:1 !important; }
+  .stale-banner { background:#FEF3C7; color:#78350F; border:2px solid #B45309; font-weight:700; }
 </style>
 </head>
 <body class="text-slate-800 dense">
@@ -50,18 +59,19 @@ tailwind.config = {
     <div class="flex items-center gap-3">
       <div>
         <h1 class="text-sm font-bold leading-tight">动态 MCT · 最小闭环</h1>
-        <p class="text-[10px] text-slate-300 mt-0.5">v0.2 测算 + 前端 v0.3 决策层（quantile_anchor_proxy）· 不改 index.html</p>
+        <p class="text-[10px] text-slate-300 mt-0.5">estimate 契约 io_v0.2 · 决策层 v0.3 设计稿、未开实现闸（前端演示计算 · quantile_anchor_proxy）</p>
+        <p id="topStatus" class="text-[10px] font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">连接演示服…首次加载约半分钟</p>
       </div>
       <nav class="flex gap-1 ml-2" aria-label="页面">
         <a href="index.html" class="tab-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold hover:bg-ops-800">测算 (index)</a>
         <span class="tab-btn active px-2.5 py-1 rounded border text-[11px] font-semibold">最小闭环</span>
       </nav>
     </div>
-    <div class="flex items-center gap-1" role="tablist" aria-label="受众">
+    <div class="flex items-center gap-1" role="group" aria-label="受众">
       <span class="text-[10px] text-slate-400 mr-1">受众</span>
-      <button type="button" data-aud="occ" class="aud-btn active px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">OCC</button>
-      <button type="button" data-aud="一线" class="aud-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">一线</button>
-      <button type="button" data-aud="旅客" class="aud-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">旅客</button>
+      <button type="button" data-aud="occ" aria-pressed="true" class="aud-btn active px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">OCC</button>
+      <button type="button" data-aud="一线" aria-pressed="false" class="aud-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">一线</button>
+      <button type="button" data-aud="旅客" aria-pressed="false" class="aud-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold">旅客</button>
     </div>
   </div>
 </header>
@@ -81,36 +91,37 @@ tailwind.config = {
   </section>
 
 <section class="col-span-12 lg:col-span-3 card p-3 space-y-2" id="panelInput">
-    <div class="section-title">输入 · POST /v1/mct/estimate（v0.2 body）</div>
+    <div class="section-title">输入 · POST /v1/mct/estimate（estimate 契约 io_v0.2）</div>
     <div class="grid grid-cols-2 gap-1.5">
       <label class="block"><span class="fkey">flow</span>
-        <select id="flow" class="w-full border rounded px-1.5 py-1"><option>E-D</option><option>E-C</option><option>D-D</option></select></label>
+        <select id="flow" class="w-full border rounded px-1.5 py-1"><option>E-D</option><option>E-C</option></select></label>
       <label class="block"><span class="fkey">through</span>
         <select id="through" class="w-full border rounded px-1.5 py-1"><option>否</option><option>是</option></select></label>
       <label class="block"><span class="fkey">carry_on_only</span>
         <select id="carry_on_only" class="w-full border rounded px-1.5 py-1"><option>否</option><option>是</option></select></label>
       <label class="block"><span class="fkey">stand</span>
-        <select id="stand" class="w-full border rounded px-1.5 py-1"><option>远机位</option><option>近机位</option></select></label>
+        <select id="stand" class="w-full border rounded px-1.5 py-1"><option>远机位</option><option>近机位</option><option>远远机位</option></select></label>
       <label class="block"><span class="fkey">ac_type</span>
         <select id="ac_type" class="w-full border rounded px-1.5 py-1"><option>窄体</option><option>宽体</option></select></label>
       <label class="block"><span class="fkey">seat_zone</span>
         <select id="seat_zone" class="w-full border rounded px-1.5 py-1"><option>后舱</option><option>中舱</option><option>前舱</option></select></label>
       <label class="block"><span class="fkey">period</span>
-        <select id="period" class="w-full border rounded px-1.5 py-1"><option>中</option><option>早</option><option>晚</option></select></label>
+        <select id="period" class="w-full border rounded px-1.5 py-1"><option>中</option><option>早</option><option>晚</option><option>凌晨</option></select></label>
       <label class="block"><span class="fkey">nation</span>
-        <select id="nation" class="w-full border rounded px-1.5 py-1"><option>外籍</option><option>中国籍</option></select></label>
+        <select id="nation" class="w-full border rounded px-1.5 py-1"><option>外籍</option><option value="国内">国内（中国籍）</option></select></label>
       <label class="block"><span class="fkey">window_min</span>
-        <input id="window_min" type="number" value="55" class="w-full border rounded px-1.5 py-1" /></label>
+        <input id="window_min" type="number" min="1" step="any" value="55" aria-describedby="windowErr" class="w-full border rounded px-1.5 py-1" /></label>
       <label class="block"><span class="fkey">mode</span>
         <select id="mode" class="w-full border rounded px-1.5 py-1"><option value="hybrid_t3">hybrid_t3</option><option value="excel_default">excel_default</option></select></label>
     </div>
-    <label class="block"><span class="fkey">request_id</span>
-      <input id="request_id" type="text" value="demo-hybrid-55" class="w-full border rounded px-1.5 py-1 font-mono text-[11px]" /></label>
+    <p id="windowErr" class="hidden text-[10px] font-semibold text-red-700" role="alert">window_min 须为大于 0 的数字（未发送请求）</p>
+    <label class="block"><span class="fkey">request_id（每次测算自动生成 · 回灌沿用当前结果的 id）</span>
+      <input id="request_id" type="text" value="" readonly placeholder="测算后生成" class="w-full border rounded px-1.5 py-1 font-mono text-[11px] bg-slate-50" /></label>
     <div class="flex gap-1.5">
       <button type="button" id="btnEstimate" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded py-1.5 text-xs">测算 + 决策层</button>
       <button type="button" id="btnReset" class="px-2 border rounded text-xs font-semibold bg-slate-50">默认55</button>
     </div>
-    <p id="apiStatus" class="text-[10px] text-slate-500 font-mono leading-snug">就绪 · 本站演示服务</p>
+    <p id="apiStatus" class="text-[10px] text-slate-500 font-mono leading-snug" role="status" aria-live="polite">连接演示服…首次加载约半分钟</p>
     <div class="flex flex-wrap gap-1 pt-1">
       <span class="chip chip-amber" title="S1 配置">s1_min=20 · unconfirmed_config</span>
       <span class="chip chip-red">success_prob_not_calibrated</span>
@@ -118,14 +129,17 @@ tailwind.config = {
   </section>
 
   <!-- 中：决策层主视线 -->
-  <section class="col-span-12 lg:col-span-6 space-y-3" id="panelDecision">
+  <section class="col-span-12 lg:col-span-6 space-y-3" id="panelDecision" aria-live="polite">
+    <div id="staleBanner" class="stale-banner hidden rounded card px-3 py-2 text-sm" role="status" aria-live="polite"></div>
+
     <!-- 成功概率 + slack -->
     <div class="card p-3">
       <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
-        <div class="section-title">决策层 · io_v0.3_draft（前端计算）</div>
+        <div class="section-title">决策层 · v0.3 设计稿、未开实现闸（前端演示计算）</div>
         <div class="flex flex-wrap gap-1">
           <span class="chip chip-purple occ-line-only" id="chipKind">success_prob_kind=quantile_anchor_proxy</span>
           <span class="chip chip-red">概率未校准</span>
+          <span class="chip chip-yellow" id="srcChip">连接演示服…</span>
         </div>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -151,11 +165,12 @@ tailwind.config = {
         </div>
       </div>
       <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-        <div><span class="fkey">p50</span> <span id="dispP50" class="font-mono font-semibold">—</span></div>
-        <div><span class="fkey">p90</span> <span id="dispP90" class="font-mono font-semibold">—</span></div>
-        <div><span class="fkey">p95</span> <span id="dispP95" class="font-mono font-semibold">—</span></div>
+        <div><span class="fkey">p50 <span class="chip chip-gray">演示</span></span> <span id="dispP50" class="font-mono font-semibold">—</span></div>
+        <div><span class="fkey">p90 <span class="chip chip-gray">演示</span></span> <span id="dispP90" class="font-mono font-semibold">—</span></div>
+        <div><span class="fkey">p95 <span class="chip chip-gray">演示</span></span> <span id="dispP95" class="font-mono font-semibold">—</span></div>
         <div><span class="fkey">window</span> <span id="dispWin" class="font-mono font-semibold">—</span></div>
       </div>
+      <p class="text-[10px] text-slate-500 mt-1.5">注：success_prob 为分档锚点（P50/P90/P95 对应的代理值），不是连续概率曲线。</p>
       <div id="riskBanner" class="mt-2 rounded px-2.5 py-1.5 text-xs font-semibold text-white bg-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
         <span>risk_level=<span id="dispRisk">—</span></span>
         <span>v0.2 action=<span id="dispActionV02">—</span></span>
@@ -237,7 +252,7 @@ tailwind.config = {
       <label class="block mb-1"><span class="fkey">outcome_note</span>
         <input id="fbNote" type="text" value="演示回灌" class="w-full border rounded px-1.5 py-1" /></label>
       <button type="button" id="btnFeedback" class="w-full mt-1 bg-ops-800 hover:bg-ops-900 text-white font-semibold rounded py-1.5 text-xs">提交反馈</button>
-      <p id="fbStatus" class="text-[10px] text-slate-500 font-mono mt-1.5 leading-snug">未提交</p>
+      <p id="fbStatus" class="text-[10px] text-slate-500 font-mono mt-1.5 leading-snug" role="status" aria-live="polite">未提交</p>
     </div>
 
     <div class="card p-2 text-[10px] text-slate-500 leading-relaxed" id="opsOnlyHint">
@@ -274,7 +289,8 @@ tailwind.config = {
     lastEstimate: null,
     v03: null,
     selectedActionId: null,
-    requestId: 'demo-hybrid-55'
+    requestId: null,
+    resultState: null // live | fallback | invalid
   };
 
   function $(id) { return document.getElementById(id); }
@@ -363,7 +379,9 @@ tailwind.config = {
     const success_prob = computeSuccessProb(w, p50, p90, p95);
     const success_prob_kind = 'quantile_anchor_proxy'; // ALWAYS
     const risk = summary.risk_level || '';
-    const { ladder, recommended_action_id } = buildLadder(slack_min, slack_p90_min, slack_p95_min, S1_MIN, risk);
+    // 仅显示逻辑：与 −S1 比较前先四舍五入到 2 位小数（避免 54.4−74.4=−20.000000000000007 浮点误差）
+    const r2 = x => Math.round(x * 100) / 100;
+    const { ladder, recommended_action_id } = buildLadder(r2(slack_min), r2(slack_p90_min), r2(slack_p95_min), S1_MIN, risk);
     return {
       slack_min,
       slack_p90_min,
@@ -380,7 +398,7 @@ tailwind.config = {
   function riskColor(level) {
     if (level === '极高风险') return '#B91C1C';
     if (level === '高风险') return '#C2410C';
-    if (level === '可控') return '#A16207';
+    if (level === '可控风险' || level === '可控') return '#CA8A04'; // 与 index 可控风险黄色一致
     if (level === '低风险' || level === '低') return '#15803D';
     return '#475569';
   }
@@ -411,6 +429,7 @@ tailwind.config = {
     $('dispActionV02').textContent = ((sum.action === '预改签 / 急转 / 专人保障' || sum.action === '专人保障（急转）/ 预改签') ? '专人保障（急转）/ 预改签 · 推荐≠派单 · 不自动执行' : sum.action) || '—';
     $('dispRec').textContent = v.recommended_action_id || '—';
     $('riskBanner').style.background = riskColor(sum.risk_level);
+    $('riskBanner').classList.toggle('risk-dark', sum.risk_level === '可控风险' || sum.risk_level === '可控'); // 深字 #111827 on #CA8A04 = 6.04:1
     $('chipKind').textContent = 'success_prob_kind=' + v.success_prob_kind;
 
     // ladder radios — default = recommended_action_id ONLY
@@ -551,7 +570,27 @@ tailwind.config = {
     }
   }
 
+  function readWindow() {
+    const raw = String($('window_min').value).trim();
+    const w = Number(raw);
+    return { ok: raw !== '' && Number.isFinite(w) && w > 0, w: w };
+  }
+  function syncValidation() {
+    const v = readWindow();
+    $('windowErr').classList.toggle('hidden', v.ok);
+    $('window_min').setAttribute('aria-invalid', v.ok ? 'false' : 'true');
+    $('btnEstimate').disabled = !v.ok;
+    $('btnEstimate').classList.toggle('opacity-50', !v.ok);
+    $('btnEstimate').classList.toggle('cursor-not-allowed', !v.ok);
+    return v;
+  }
+  function newRequestId(mode, w) {
+    return 'demo-' + mode + '-' + w + '-' + Date.now() + '-' + Math.random().toString(16).slice(2, 6);
+  }
+
   function bodyFromForm() {
+    const mode = $('mode').value;
+    const w = Number($('window_min').value);
     return {
       flow: $('flow').value,
       through: $('through').value,
@@ -561,43 +600,129 @@ tailwind.config = {
       seat_zone: $('seat_zone').value,
       period: $('period').value,
       nation: $('nation').value,
-      window_min: Number($('window_min').value),
-      mode: $('mode').value,
-      request_id: $('request_id').value || 'demo-hybrid-55'
+      window_min: w,
+      mode: mode,
+      request_id: newRequestId(mode, w)
     };
   }
 
+  function setStale(on) {
+    state.stale = on;
+    $('panelDecision').classList.toggle('state-stale', on);
+    $('panelSide').classList.toggle('state-stale', on);
+    const b = $('staleBanner');
+    b.classList.toggle('hidden', !on);
+    b.textContent = on ? '已过期·请重新测算（当前输入不合法，未发送请求；显示的是上一次结果）' : '';
+    const fbOk = !on && state.resultState === 'live';
+    $('btnFeedback').disabled = !fbOk;
+    $('btnFeedback').classList.toggle('opacity-50', !fbOk);
+    if (on) $('fbStatus').textContent = '结果已过期 · 不回灌';
+  }
+
+  function setResultState(st, data) {
+    state.resultState = st;
+    state.stale = false;
+    $('panelDecision').classList.remove('state-stale');
+    $('panelSide').classList.remove('state-stale');
+    $('staleBanner').classList.add('hidden');
+    $('staleBanner').textContent = '';
+    const panel = $('panelDecision');
+    panel.classList.toggle('state-fallback', st === 'fallback');
+    panel.classList.toggle('state-invalid', st === 'invalid');
+    const chip = $('srcChip');
+    if (st === 'live') { chip.textContent = '演示服测算 · ' + ((data && data.engine_version) || 'mct-svc-0.1-demo'); chip.className = 'chip chip-blue'; }
+    else if (st === 'fallback') { chip.textContent = '回退备案示例'; chip.className = 'chip chip-yellow'; }
+    else { chip.textContent = '入参不合法 · 未出结果'; chip.className = 'chip chip-red'; }
+    // 回灌只针对演示服实际返回的结果
+    $('btnFeedback').disabled = st !== 'live';
+    $('btnFeedback').classList.toggle('opacity-50', st !== 'live');
+    if (st !== 'live') $('fbStatus').textContent = st === 'fallback' ? '当前为回退备案示例 · 不回灌' : '入参不合法 · 不回灌';
+    else if (/不回灌$/.test($('fbStatus').textContent)) $('fbStatus').textContent = '未提交';
+  }
+
+  /** HTTP 400：不渲染概率与推荐，只显示接口 error + flags.labels */
+  function showInvalid(data, body) {
+    state.lastEstimate = null;
+    state.v03 = null;
+    ['dispProb','dispSlack','dispSlack90','dispSlack95','dispP50','dispP90','dispP95','dispRec','dispActionV02'].forEach(id => { $(id).textContent = '—'; });
+    $('dispSlack').className = 'text-2xl font-bold font-mono';
+    $('dispWin').textContent = String(body.window_min);
+    $('dispRisk').textContent = '入参不合法';
+    $('riskBanner').style.background = '#475569';
+    $('riskBanner').classList.remove('risk-dark');
+    $('ladderList').innerHTML = '<p class="text-[11px] text-red-700">入参不合法 · 未出推荐</p>';
+    $('pandaText').textContent = '—';
+    if ($('paxPlainSummary')) $('paxPlainSummary').textContent = '—';
+    if ($('paxProbMain')) $('paxProbMain').textContent = '—';
+    const ul = $('flagsLabels');
+    ul.innerHTML = '';
+    ['error: ' + (data.error || '—')].concat((data.flags && Array.isArray(data.flags.labels)) ? data.flags.labels : []).forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'border-l-2 border-red-500 pl-2 text-red-800';
+      li.textContent = String(t);
+      ul.appendChild(li);
+    });
+    setResultState('invalid');
+  }
+
   async function callEstimate() {
+    const v = syncValidation();
+    if (!v.ok) {
+      $('apiStatus').textContent = '入参不合法（前端校验）：window_min 须为大于 0 的数字 · 未发送请求';
+      $('apiStatus').classList.add('text-red-600');
+      setStale(true);
+      return;
+    }
     const body = bodyFromForm();
-    state.requestId = body.request_id;
     state.selectedActionId = null; // reset so UI defaults to recommended
     $('apiStatus').textContent = '请求中… POST /v1/mct/estimate';
+    $('apiStatus').classList.remove('text-red-600');
     $('apiStatus').classList.add('text-blue-600');
+    let res;
     try {
-      const res = await fetch(API_BASE + '/v1/mct/estimate', {
+      res = await fetch(API_BASE + '/v1/mct/estimate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body)
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(JSON.stringify(data));
-      state.lastEstimate = data;
-      const sum = data.summary || {};
-      const w = sum.window_min != null ? sum.window_min : body.window_min;
-      state.v03 = computeV03(sum, w);
-      $('apiStatus').textContent = 'OK · request_id=' + (data.request_id || body.request_id) +
-        ' · slack_min=' + round1(state.v03.slack_min).toFixed(1) +
-        ' · p=' + state.v03.success_prob.toFixed(4) +
-        ' · rec=' + state.v03.recommended_action_id;
-      $('apiStatus').classList.remove('text-blue-600');
-      renderDecision();
-      renderFlags(data.flags);
     } catch (e) {
-      $('apiStatus').textContent = '失败: ' + e.message + ' · 可离线用金标演示';
-      $('apiStatus').classList.add('text-red-600');
-      // offline golden hybrid fallback so UI still demos default numbers
-      offlineGolden(body);
+      return fallback('网络失败 / 服务不可达：' + e.message, body);
     }
+    $('apiStatus').classList.remove('text-blue-600');
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 400) {
+      $('topStatus').textContent = '就绪 · 已连接演示服（本次入参不合法）';
+      $('apiStatus').textContent = '入参不合法（HTTP 400）：' + (data.error || '未返回 error');
+      $('apiStatus').classList.add('text-red-600');
+      showInvalid(data, body);
+      return;
+    }
+    if (!res.ok) return fallback('服务异常 HTTP ' + res.status, body);
+    state.requestId = data.request_id || body.request_id;
+    $('request_id').value = state.requestId;
+    state.lastEstimate = data;
+    const sum = data.summary || {};
+    const w = sum.window_min != null ? sum.window_min : body.window_min;
+    state.v03 = computeV03(sum, w);
+    $('topStatus').textContent = '就绪 · 已连接演示服';
+    $('apiStatus').textContent = 'OK · request_id=' + state.requestId +
+      ' · slack_min=' + round1(state.v03.slack_min).toFixed(1) +
+      ' · p=' + state.v03.success_prob.toFixed(4) +
+      ' · rec=' + state.v03.recommended_action_id;
+    renderDecision();
+    renderFlags(data.flags);
+    setResultState('live', data);
+  }
+
+  function fallback(msg, body) {
+    $('apiStatus').classList.remove('text-blue-600');
+    $('apiStatus').textContent = msg + ' · 已回退备案示例';
+    $('apiStatus').classList.add('text-red-600');
+    $('topStatus').textContent = '演示服未连上 · 当前显示回退备案示例';
+    state.requestId = null;
+    $('request_id').value = '';
+    offlineGolden(body);
+    setResultState('fallback');
   }
 
   function offlineGolden(body) {
@@ -610,10 +735,10 @@ tailwind.config = {
     let risk = '极高风险';
     let action = '专人保障（急转）/ 预改签'; // 离线兜底：与 displayAction 同序；仅文案
     if (w >= golden.p95_min) { risk = '低风险'; action = '正常衔接，观察'; }
-    else if (w >= golden.p90_min) { risk = '可控'; action = '进入预警池'; }
+    else if (w >= golden.p90_min) { risk = '可控风险'; action = '进入预警池'; }
     else if (w >= golden.p50_min) { risk = '高风险'; action = '飞行中预警'; }
     const data = {
-      request_id: (body && body.request_id) || 'demo-hybrid-55',
+      request_id: null, // 回退：服务未返回 request_id
       mode: mode,
       summary: {
         ...golden,
@@ -623,7 +748,7 @@ tailwind.config = {
       },
       flags: {
         labels: [
-          '【离线金标】服务未达 · 使用演示分位',
+          '【回退备案示例】服务未达 · 使用备案演示分位（非本次接口回传）',
           '默认 window_min=55 来自测算器，非 T3 包字段',
           '【未确认】窗口相对截载/关舱时钟'
         ]
@@ -636,14 +761,14 @@ tailwind.config = {
   }
 
   async function callFeedback() {
-    const rid = state.requestId || $('request_id').value;
+    if (state.stale || state.resultState !== 'live' || !state.requestId) { $('fbStatus').textContent = '当前无演示服结果 · 不回灌'; return; }
+    const rid = state.requestId; // 当前显示结果对应的 estimate request_id
     const est = state.lastEstimate || {};
     const sum = est.summary || {};
     const v = state.v03 || {};
     const now = new Date();
-    const isoLocal = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().replace('Z', '+08:00');
-    // Shanghai-ish display; server accepts ISO
-    const recorded = now.toISOString().replace(/\.\d{3}Z$/, '+08:00'); // best-effort
+    // Asia/Shanghai 本地时间 + 真实偏移 +08:00（原实现把 UTC 时刻直接拼 +08:00，慢 8 小时）
+    const recorded = new Date(now.getTime() + 8 * 3600 * 1000).toISOString().replace(/\.\d{3}Z$/, '+08:00');
     const payload = {
       request_id: rid,
       recorded_at: recorded,
@@ -706,16 +831,17 @@ tailwind.config = {
     $('nation').value = '外籍';
     $('window_min').value = '55';
     $('mode').value = 'hybrid_t3';
-    $('request_id').value = 'demo-hybrid-55';
     callEstimate();
   }
 
   $('btnEstimate').addEventListener('click', callEstimate);
+  $('window_min').addEventListener('input', () => { if (!syncValidation().ok) setStale(true); });
   $('btnReset').addEventListener('click', resetDefault);
   $('btnFeedback').addEventListener('click', callFeedback);
   document.querySelectorAll('.aud-btn').forEach(b => {
     b.addEventListener('click', () => {
       state.audience = b.getAttribute('data-aud');
+      document.querySelectorAll('.aud-btn').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
       applyAudience();
     });
   });

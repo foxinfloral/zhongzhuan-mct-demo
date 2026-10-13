@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>动态 MCT 小模型 · OCC 演示（io_v0.2）</title>
+<title>动态 MCT 小模型 · OCC 演示（estimate 契约 io_v0.2）</title>
+<!-- favicon：内联 data URI（源文件 static/favicon.svg；后端未加路由） -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230f2744%22/%3E%3Ctext x=%2216%22 y=%2221%22 font-family=%22Arial,sans-serif%22 font-size=%2212%22 font-weight=%22700%22 fill=%22%2393c5fd%22 text-anchor=%22middle%22%3EMCT%3C/text%3E%3C/svg%3E" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 tailwind.config = {
@@ -59,6 +61,13 @@ tailwind.config = {
     box-shadow:0 -2px 8px rgba(127,29,29,.25);
   }
   body { padding-bottom:2.5rem; }
+  *:focus-visible { outline:3px solid #2563EB !important; outline-offset:2px !important; }
+  .state-fallback { outline:2px dashed #D97706; outline-offset:2px; }
+  .state-invalid { outline:2px dashed #B91C1C; outline-offset:2px; }
+  .state-stale { opacity:0.4; filter:grayscale(0.6); }
+  .risk-dark { color:#111827 !important; }
+  .risk-dark * { opacity:1 !important; }
+  .stale-banner { background:#FEF3C7; color:#78350F; border:2px solid #B45309; font-weight:700; }
 </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
@@ -75,6 +84,7 @@ tailwind.config = {
           <span class="chip chip-yellow">对齐 io_v0.2 字段约定</span>
         </div>
         <p class="text-xs text-slate-300 mt-0.5">字段 key 对齐 io_v0.2 字段约定 · API：POST /v1/mct/estimate（本站演示服务）</p>
+        <p id="topStatus" class="text-xs font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">连接演示服…首次加载约半分钟</p>
       </div>
     </div>
     <div class="text-[11px] sm:text-xs text-amber-100 bg-amber-500/15 border border-amber-400/40 rounded px-2.5 py-1.5 max-w-lg leading-snug">
@@ -111,7 +121,7 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】I转D 是否等同 E-D；E-C 本包几乎无实测样本</span>
           </div>
-          <div class="seg" id="flowSeg" role="group" aria-label="flow">
+          <div class="seg" id="flowSeg" role="group" aria-label="flow 流向">
             <button type="button" data-val="E-C">E-C</button>
             <button type="button" data-val="E-D" class="active">E-D</button>
           </div>
@@ -125,7 +135,7 @@ tailwind.config = {
             <span class="fkey">through</span>
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
-          <div class="seg" id="throughSeg">
+          <div class="seg" id="throughSeg" role="group" aria-label="through 通程">
             <button type="button" data-val="是">是</button>
             <button type="button" data-val="否" class="active">否</button>
           </div>
@@ -139,7 +149,7 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【争议】行李是否入引擎</span>
           </div>
-          <div class="seg" id="carrySeg">
+          <div class="seg" id="carrySeg" role="group" aria-label="carry_on_only 免提">
             <button type="button" data-val="是">是</button>
             <button type="button" data-val="否" class="active">否</button>
           </div>
@@ -153,7 +163,7 @@ tailwind.config = {
             <span class="fkey">stand</span>
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
-          <div class="seg" id="standSeg">
+          <div class="seg" id="standSeg" role="group" aria-label="stand 机位">
             <button type="button" data-val="近机位">近机位</button>
             <button type="button" data-val="远机位" class="active">远机位</button>
             <button type="button" data-val="远远机位">远远机位</button>
@@ -167,7 +177,7 @@ tailwind.config = {
             <span class="fkey">ac_type</span>
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
-          <div class="seg" id="acTypeSeg">
+          <div class="seg" id="acTypeSeg" role="group" aria-label="ac_type 机型">
             <button type="button" data-val="窄体" class="active">窄体</button>
             <button type="button" data-val="宽体">宽体</button>
           </div>
@@ -181,7 +191,7 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】与实测座位号切分对应</span>
           </div>
-          <div class="seg" id="seatSeg">
+          <div class="seg" id="seatSeg" role="group" aria-label="seat_zone 舱位">
             <button type="button" data-val="前舱">前舱</button>
             <button type="button" data-val="中舱">中舱</button>
             <button type="button" data-val="后舱" class="active">后舱</button>
@@ -196,7 +206,7 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】时钟切分</span>
           </div>
-          <div class="seg" id="periodSeg">
+          <div class="seg" id="periodSeg" role="group" aria-label="period 时段">
             <button type="button" data-val="早">早</button>
             <button type="button" data-val="中" class="active">中</button>
             <button type="button" data-val="晚">晚</button>
@@ -212,7 +222,7 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】空白国籍是否=国内</span>
           </div>
-          <div class="seg" id="nationSeg">
+          <div class="seg" id="nationSeg" role="group" aria-label="nation 旅客国籍">
             <button type="button" data-val="国内">国内</button>
             <button type="button" data-val="外籍" class="active">外籍</button>
           </div>
@@ -221,16 +231,17 @@ tailwind.config = {
         <!-- window_min -->
         <div>
           <div class="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span class="label">可用窗口</span>
+            <label for="windowMin" class="label">可用窗口</label>
             <span class="fkey">window_min</span>
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
             <span class="chip chip-amber">【未确认】可用窗口时钟</span>
           </div>
           <div class="flex items-center gap-2">
-            <input id="windowMin" type="number" min="1" max="300" step="1" value="55"
+            <input id="windowMin" aria-describedby="windowErr" type="number" min="1" max="300" step="1" value="55"
               class="w-28 text-sm border border-slate-300 rounded px-2.5 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <span class="text-sm text-slate-500">分钟</span>
           </div>
+          <p id="windowErr" class="hidden text-[11px] font-semibold text-red-700 mt-1" role="alert">window_min 须为大于 0 的数字（未发送请求）</p>
           <p class="text-[11px] muted mt-1">默认 55 来自测算器；T3 包无此字段</p>
         </div>
 
@@ -271,19 +282,19 @@ tailwind.config = {
     <!-- C. 运行控制 -->
     <section class="card p-4 flex flex-col">
       <div class="section-title">C · 运行控制</div>
-      <p class="text-sm font-semibold text-slate-800 mt-0.5 mb-3">示例数据刷新（非真实引擎）</p>
+      <p class="text-sm font-semibold text-slate-800 mt-0.5 mb-3">按当前输入调用本站演示服测算</p>
 
       <button id="btnRun" type="button"
         class="w-full py-3 px-4 rounded-lg bg-ops-800 hover:bg-ops-900 text-white font-bold text-sm shadow-sm transition">
         调用测算接口
       </button>
-      <p class="text-[11px] muted mt-2 leading-relaxed">仅回填默认场景回传示例。不发明公式。正式测算：POST /v1/mct/estimate</p>
+      <p class="text-[11px] muted mt-2 leading-relaxed">调用 POST /v1/mct/estimate（本站演示服）；服务不可达时整块回退备案示例并标注。不发明公式。</p>
 
       <div class="mt-4 p-3 rounded border border-dashed border-slate-300 bg-slate-50">
         <div class="text-xs font-semibold text-slate-500 mb-1">引擎 / API</div>
         <div class="text-sm font-mono text-slate-500">POST /v1/mct/estimate</div>
-        <div class="text-sm font-mono text-slate-400 mt-0.5">engine: mct-svc-0.1-demo · io_v0.2</div>
-        <div id="apiStatus" class="text-xs font-mono mt-1 text-slate-500">待连接演示服…</div>
+        <div class="text-sm font-mono text-slate-400 mt-0.5" id="engineLine">estimate 契约 io_v0.2 · engine: mct-svc-0.1-demo</div>
+        <div id="apiStatus" class="text-xs font-mono mt-1 text-slate-500" role="status" aria-live="polite">连接演示服…首次加载约半分钟</div>
       </div>
 
       <!-- 超时：禁用 -->
@@ -313,13 +324,15 @@ tailwind.config = {
   </div>
 
   <!-- D. 结果总览 -->
-  <section class="card p-4">
+  <div id="staleBanner" class="stale-banner hidden rounded px-3 py-2 text-sm" role="status" aria-live="polite"></div>
+  <section class="card p-4" id="secSummary" aria-live="polite">
     <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
       <div>
         <div class="section-title">D · 结果总览 summary</div>
         <div class="flex items-center gap-2 flex-wrap mt-0.5">
           <p class="text-sm font-semibold text-slate-800">p50_min / p90_min / p95_min · risk_level · action</p>
-          <span class="chip chip-yellow">回传示例数据</span>
+          <span class="chip chip-yellow" id="srcChipD">连接演示服…</span>
+          <span class="chip chip-gray">分位为演示值</span>
           <span class="chip chip-amber">【争议】风险三套语言 · 当前仅挂「窗口 vs 分位」· 另两套未接入</span>
         </div>
       </div>
@@ -365,13 +378,13 @@ tailwind.config = {
   </section>
 
   <!-- E. 基线对照 + 节点表 -->
-  <section class="card p-4 overflow-x-auto">
+  <section class="card p-4 overflow-x-auto" id="secCompare">
     <div class="flex items-center gap-2 flex-wrap mb-3">
       <div>
         <div class="section-title">E · 基线对照 + nodes[]</div>
         <p class="text-sm font-semibold text-slate-800 mt-0.5">excel_default vs hybrid_t3 · 10 节点明细</p>
       </div>
-      <span class="chip chip-yellow">回传示例数据 · 非现场测算</span>
+      <span class="chip chip-yellow" id="srcChipE">连接演示服…</span>
     </div>
 
     <table class="cmp w-full min-w-[520px] mb-5">
@@ -388,17 +401,17 @@ tailwind.config = {
       <tbody>
         <tr id="rowExcel">
           <td class="font-semibold font-mono text-sm">excel_default</td>
-          <td class="font-mono">72</td>
-          <td class="font-mono">97</td>
-          <td class="font-mono">104.13</td>
+          <td class="font-mono" id="cmpExcelP50">72</td>
+          <td class="font-mono" id="cmpExcelP90">97</td>
+          <td class="font-mono" id="cmpExcelP95">104.13</td>
           <td><span id="riskExcelChip" class="chip">极高风险</span></td>
           <td class="text-xs" id="actionExcel">专人保障（急转）/ 预改签</td>
         </tr>
         <tr id="rowHybrid" class="bg-blue-50/40">
           <td class="font-semibold font-mono text-sm">hybrid_t3</td>
-          <td class="font-mono">74.40</td>
-          <td class="font-mono">94.22</td>
-          <td class="font-mono">99.87</td>
+          <td class="font-mono" id="cmpHybridP50">74.40</td>
+          <td class="font-mono" id="cmpHybridP90">94.22</td>
+          <td class="font-mono" id="cmpHybridP95">99.87</td>
           <td><span id="riskHybridChip" class="chip">极高风险</span></td>
           <td class="text-xs" id="actionHybrid">专人保障（急转）/ 预改签</td>
         </tr>
@@ -407,6 +420,7 @@ tailwind.config = {
 
     <div class="flex items-center gap-2 mb-2 flex-wrap">
       <p class="text-sm font-semibold text-slate-700">节点明细 nodes[]（计入开关只读，由 through / carry_on_only / stand 推导）</p>
+      <span class="chip chip-yellow" id="srcChipNodes">连接演示服…</span>
       <span class="text-xs text-slate-400 font-mono">included_count=<span id="includedCount">10</span></span>
     </div>
     <div class="overflow-x-auto">
@@ -519,7 +533,7 @@ tailwind.config = {
   /** 前端展示重排：引擎 summary.action 不改，仅界面显示顺序调整（专人保障与急转同档，预改签不居首） */
   function displayAction(a) { return a === '预改签 / 急转 / 专人保障' ? '专人保障（急转）/ 预改签' : a; }
 
-  /** 默认场景回传示例 — 仅展示用，不发明公式 */
+  /** 回退备案示例（仅服务不可达时展示）— 默认场景备案数字，不发明公式；接口成功时不使用 */
   const SUMMARY = {
     excel_default: { p50_min: 72, p90_min: 97, p95_min: 104.13 },
     hybrid_t3:     { p50_min: 74.40, p90_min: 94.22, p95_min: 99.87 }
@@ -584,9 +598,67 @@ tailwind.config = {
     el.className = 'text-xs font-mono mt-1 ' + (ok ? 'text-emerald-700' : 'text-amber-700');
   }
 
+  let firstDone = false;
+  function setTopStatus(text) { const el = document.getElementById('topStatus'); if (el) el.textContent = text; }
+  function setChips(text, cls) {
+    ['srcChipD', 'srcChipE'].forEach(id => {
+      const el = document.getElementById(id); if (!el) return;
+      el.textContent = text; el.className = 'chip ' + cls;
+    });
+  }
+  /** 结果区状态：live=演示服测算 / fallback=回退备案示例 / invalid=入参不合法 */
+  /** 前端校验拦截后：结果整块标「已过期·请重新测算」；新结果渲染时清除 */
+  function setStale(on) {
+    ['secSummary', 'secCompare'].forEach(id => document.getElementById(id).classList.toggle('state-stale', on));
+    const b = document.getElementById('staleBanner');
+    b.classList.toggle('hidden', !on);
+    b.textContent = on ? '已过期·请重新测算（下方为上一次结果；当前输入不合法，未发送请求）' : '';
+  }
+  function setResultState(st, data) {
+    setStale(false);
+    const secs = ['secSummary', 'secCompare'].map(id => document.getElementById(id));
+    secs.forEach(el => { el.classList.toggle('state-fallback', st === 'fallback'); el.classList.toggle('state-invalid', st === 'invalid'); });
+    const nodesChip = document.getElementById('srcChipNodes');
+    if (st === 'live') {
+      const ev = (data && data.engine_version) || 'mct-svc-0.1-demo';
+      setChips('演示服测算 · ' + ev, 'chip-proto');
+      nodesChip.textContent = '演示服回传'; nodesChip.className = 'chip chip-proto';
+      document.getElementById('engineLine').textContent = 'estimate 契约 ' + ((data && data.contract_version) || 'io_v0.2') + ' · engine: ' + ev;
+    } else if (st === 'fallback') {
+      setChips('回退备案示例', 'chip-yellow');
+      nodesChip.textContent = '回退备案示例'; nodesChip.className = 'chip chip-yellow';
+    } else {
+      setChips('入参不合法 · 未出结果', 'chip-warn');
+      nodesChip.textContent = '入参不合法 · 未出结果'; nodesChip.className = 'chip chip-warn';
+    }
+  }
+
+  /** 客户端校验：空 / 非数字 / ≤0 → 不发请求 */
+  function readWindow() {
+    const raw = String(document.getElementById('windowMin').value).trim();
+    const w = Number(raw);
+    const ok = raw !== '' && Number.isFinite(w) && w > 0;
+    return { ok: ok, w: w };
+  }
+  function syncValidation() {
+    const v = readWindow();
+    document.getElementById('windowErr').classList.toggle('hidden', v.ok);
+    document.getElementById('windowMin').setAttribute('aria-invalid', v.ok ? 'false' : 'true');
+    const btn = document.getElementById('btnRun');
+    btn.disabled = !v.ok;
+    btn.classList.toggle('opacity-50', !v.ok);
+    btn.classList.toggle('cursor-not-allowed', !v.ok);
+    return v;
+  }
+
+  function newRequestId() {
+    return 'demo-' + state.mode + '-' + state.window_min + '-' + Date.now() + '-' + Math.random().toString(16).slice(2, 6);
+  }
+
   async function callEstimate() {
-    const w = Number(document.getElementById('windowMin').value) || 0;
-    state.window_min = w;
+    const v = syncValidation();
+    if (!v.ok) { setApiStatus('入参不合法（前端校验）：window_min 须为大于 0 的数字 · 未发送请求', false); setStale(true); return 'blocked'; }
+    state.window_min = v.w;
     const body = {
       flow: state.flow,
       through: state.through,
@@ -598,58 +670,90 @@ tailwind.config = {
       nation: state.nation,
       window_min: state.window_min,
       mode: state.mode,
-      request_id: 'ui-' + Date.now()
+      request_id: newRequestId()
     };
     setApiStatus('请求中… POST /v1/mct/estimate', true);
+    if (!firstDone) setTopStatus('连接演示服…首次加载约半分钟');
+    let res;
     try {
-      const res = await fetch(API_BASE + '/v1/mct/estimate', {
+      res = await fetch(API_BASE + '/v1/mct/estimate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body)
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      lastResponse = data;
-      liveMode = true;
-      applyLiveResponse(data);
-      setApiStatus('已接演示服 · ' + (data.engine_version || '') + ' · request_id=' + (data.request_id || ''), true);
-      return true;
     } catch (err) {
-      liveMode = false;
-      setApiStatus('服务不可用，回退本地备案数字：' + err.message, false);
-      renderAll();
-      return false;
+      return showFallback('网络失败 / 服务不可达：' + err.message);
     }
+    if (res.status === 400) {
+      const data = await res.json().catch(() => ({}));
+      showInvalid(data);
+      return 'invalid';
+    }
+    if (!res.ok) return showFallback('服务异常 HTTP ' + res.status);
+    const data = await res.json();
+    lastResponse = data;
+    liveMode = true;
+    applyLiveResponse(data);
+    setResultState('live', data);
+    firstDone = true;
+    setTopStatus('就绪 · 已连接演示服');
+    setApiStatus('已接演示服 · ' + (data.engine_version || '') + ' · request_id=' + (data.request_id || ''), true);
+    return 'live';
+  }
+
+  function showFallback(msg) {
+    liveMode = false;
+    setApiStatus(msg + ' · 已回退备案示例', false);
+    setTopStatus('演示服未连上 · 当前显示回退备案示例');
+    renderAll();
+    renderFallbackFlags();
+    setResultState('fallback');
+    return 'fallback';
+  }
+
+  /** HTTP 400：入参不合法 — 不渲染推荐/结果，显示接口返回的 error 与 flags.labels */
+  function showInvalid(data) {
+    liveMode = false;
+    firstDone = true;
+    setTopStatus('就绪 · 已连接演示服（本次入参不合法）');
+    setApiStatus('入参不合法（HTTP 400）：' + (data.error || '未返回 error'), false);
+    ['vP50', 'vP90', 'vP95'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('riskLabel').textContent = '入参不合法';
+    document.getElementById('riskAction').textContent = '未出结果 · 不给推荐';
+    document.getElementById('riskBanner').style.background = '#475569';
+    document.getElementById('riskBanner').classList.remove('risk-dark');
+    ['cmpExcelP50','cmpExcelP90','cmpExcelP95','cmpHybridP50','cmpHybridP90','cmpHybridP95','actionExcel','actionHybrid'].forEach(id => document.getElementById(id).textContent = '—');
+    ['riskExcelChip','riskHybridChip'].forEach(id => { const el = document.getElementById(id); el.textContent = '—'; el.removeAttribute('style'); });
+    document.getElementById('nodesBody').innerHTML = '<tr><td colspan="8" class="text-xs text-red-700">入参不合法 · 未出节点结果</td></tr>';
+    document.getElementById('includedCount').textContent = '—';
+    const ul = document.getElementById('flagsList');
+    ul.innerHTML = '';
+    const items = ['error: ' + (data.error || '—')].concat((data.flags && Array.isArray(data.flags.labels)) ? data.flags.labels : []);
+    items.forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-2 rounded border border-red-200 bg-red-50 px-2.5 py-1.5';
+      li.innerHTML = '<span class="chip chip-warn shrink-0">入参不合法</span><span></span>';
+      li.lastChild.textContent = String(t);
+      ul.appendChild(li);
+    });
+    const mb = document.getElementById('missingFromLabels'); if (mb) mb.innerHTML = '';
+    setResultState('invalid');
+  }
+
+  function renderFallbackFlags() {
+    renderFlags();
+    const ul = document.getElementById('flagsList');
+    const li = document.createElement('li');
+    li.className = 'flex items-start gap-2 rounded border border-amber-300 bg-amber-100 px-2.5 py-1.5 font-semibold';
+    li.innerHTML = '<span class="chip chip-yellow shrink-0">回退备案示例</span><span>服务未达 · 以下 flags 为备案示例，非本次接口回传</span>';
+    ul.insertBefore(li, ul.firstChild);
+    const mb = document.getElementById('missingFromLabels'); if (mb) mb.innerHTML = '';
   }
 
   function applyLiveResponse(data) {
     const sum = data.summary || {};
     const mode = data.mode || state.mode;
     state.mode = mode;
-    // refresh SUMMARY from compare when present
-    if (data.compare) {
-      if (data.compare.excel_default) {
-        SUMMARY.excel_default = {
-          p50_min: data.compare.excel_default.p50_min,
-          p90_min: data.compare.excel_default.p90_min,
-          p95_min: data.compare.excel_default.p95_min
-        };
-      }
-      if (data.compare.hybrid_t3) {
-        SUMMARY.hybrid_t3 = {
-          p50_min: data.compare.hybrid_t3.p50_min,
-          p90_min: data.compare.hybrid_t3.p90_min,
-          p95_min: data.compare.hybrid_t3.p95_min
-        };
-      }
-    }
-    // primary summary from live
-    SUMMARY[mode] = {
-      p50_min: sum.p50_min,
-      p90_min: sum.p90_min,
-      p95_min: sum.p95_min
-    };
-
     const level = sum.risk_level || riskOf(state.window_min, mode);
     const action = displayAction(sum.action) || (RISK_META[level] && RISK_META[level].action) || '';
     const meta = RISK_META[level] || RISK_META['极高风险'];
@@ -663,6 +767,7 @@ tailwind.config = {
     document.getElementById('riskSource').textContent = mode;
     document.getElementById('dispMode').textContent = mode;
     document.getElementById('riskBanner').style.background = meta.color;
+    document.getElementById('riskBanner').classList.toggle('risk-dark', level === '可控风险'); // 白字对比度 2.94 不足 → 深字 #111827（6.04:1）
     if (sum.included_count != null) document.getElementById('includedCount').textContent = sum.included_count;
 
     // compare chips
@@ -671,7 +776,9 @@ tailwind.config = {
       const le = data.compare.excel_default.risk_level || riskOf(w, 'excel_default');
       applyChip(document.getElementById('riskExcelChip'), le);
       document.getElementById('actionExcel').textContent = displayAction(data.compare.excel_default.action) || RISK_META[le].action;
-      document.getElementById('cmpExcelP50') && (document.getElementById('cmpExcelP50').textContent = data.compare.excel_default.p50_min);
+      document.getElementById('cmpExcelP50').textContent = data.compare.excel_default.p50_min;
+      document.getElementById('cmpExcelP90').textContent = data.compare.excel_default.p90_min;
+      document.getElementById('cmpExcelP95').textContent = data.compare.excel_default.p95_min;
     } else {
       const le = riskOf(w, 'excel_default');
       applyChip(document.getElementById('riskExcelChip'), le);
@@ -681,6 +788,9 @@ tailwind.config = {
       const lh = data.compare.hybrid_t3.risk_level || riskOf(w, 'hybrid_t3');
       applyChip(document.getElementById('riskHybridChip'), lh);
       document.getElementById('actionHybrid').textContent = displayAction(data.compare.hybrid_t3.action) || RISK_META[lh].action;
+      document.getElementById('cmpHybridP50').textContent = data.compare.hybrid_t3.p50_min;
+      document.getElementById('cmpHybridP90').textContent = data.compare.hybrid_t3.p90_min;
+      document.getElementById('cmpHybridP95').textContent = data.compare.hybrid_t3.p95_min;
     } else {
       const lh = riskOf(w, 'hybrid_t3');
       applyChip(document.getElementById('riskHybridChip'), lh);
@@ -691,6 +801,7 @@ tailwind.config = {
     document.getElementById('rowHybrid').classList.toggle('bg-blue-50/40', mode === 'hybrid_t3');
     document.getElementById('modeExcel').classList.toggle('active', mode === 'excel_default');
     document.getElementById('modeHybrid').classList.toggle('active', mode === 'hybrid_t3');
+    syncModePressed();
 
     // nodes from API
     if (Array.isArray(data.nodes)) {
@@ -811,14 +922,22 @@ tailwind.config = {
       const btn = e.target.closest('button[data-val]');
       if (!btn) return;
       state[key] = btn.getAttribute('data-val');
-      el.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === state[key]));
+      setSegValue(id, state[key]);
       callEstimate();
     });
   }
 
   function setSegValue(id, val) {
     const el = document.getElementById(id);
-    el.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === val));
+    el.querySelectorAll('button').forEach(b => {
+      const on = b.getAttribute('data-val') === val;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  function syncModePressed() {
+    document.getElementById('modeExcel').setAttribute('aria-pressed', state.mode === 'excel_default' ? 'true' : 'false');
+    document.getElementById('modeHybrid').setAttribute('aria-pressed', state.mode === 'hybrid_t3' ? 'true' : 'false');
   }
 
   function renderNodes() {
@@ -893,7 +1012,15 @@ tailwind.config = {
     document.getElementById('riskSource').textContent = mode;
     document.getElementById('dispMode').textContent = mode;
     document.getElementById('riskBanner').style.background = meta.color;
+    document.getElementById('riskBanner').classList.toggle('risk-dark', level === '可控风险');
 
+    // 回退备案示例：对照表恢复备案数字
+    document.getElementById('cmpExcelP50').textContent = '72';
+    document.getElementById('cmpExcelP90').textContent = '97';
+    document.getElementById('cmpExcelP95').textContent = '104.13';
+    document.getElementById('cmpHybridP50').textContent = '74.40';
+    document.getElementById('cmpHybridP90').textContent = '94.22';
+    document.getElementById('cmpHybridP95').textContent = '99.87';
     const le = riskOf(w, 'excel_default');
     const lh = riskOf(w, 'hybrid_t3');
     applyChip(document.getElementById('riskExcelChip'), le);
@@ -906,6 +1033,7 @@ tailwind.config = {
 
     document.getElementById('modeExcel').classList.toggle('active', mode === 'excel_default');
     document.getElementById('modeHybrid').classList.toggle('active', mode === 'hybrid_t3');
+    syncModePressed();
   }
 
   function renderAll() {
@@ -945,23 +1073,24 @@ tailwind.config = {
   bindSeg('periodSeg', 'period');
   bindSeg('nationSeg', 'nation');
 
-  let _wTimer; document.getElementById('windowMin').addEventListener('input', () => { clearTimeout(_wTimer); _wTimer = setTimeout(() => callEstimate(), 300); });
+  let _wTimer; document.getElementById('windowMin').addEventListener('input', () => { clearTimeout(_wTimer); if (!syncValidation().ok) { setApiStatus('入参不合法（前端校验）：window_min 须为大于 0 的数字 · 未发送请求', false); setStale(true); return; } _wTimer = setTimeout(() => callEstimate(), 300); });
   document.getElementById('modeExcel').addEventListener('click', () => { state.mode = 'excel_default'; callEstimate(); });
   document.getElementById('modeHybrid').addEventListener('click', () => { state.mode = 'hybrid_t3'; callEstimate(); });
   document.getElementById('btnLoadDefault').addEventListener('click', loadDefaults);
   document.getElementById('btnRun').addEventListener('click', async () => {
-    const ok = await callEstimate();
+    const st = await callEstimate();
     const toast = document.getElementById('runToast');
-    toast.textContent = ok ? '✓ 已从服务刷新' : '⚠ 已回退本地备案数字';
+    toast.textContent = ({ live: '✓ 已从演示服刷新', fallback: '⚠ 服务未达 · 已回退备案示例', invalid: '⚠ 入参不合法 · 未出结果', blocked: '⚠ 入参不合法 · 未发送请求' })[st] || '';
     toast.classList.remove('hidden');
     clearTimeout(toast._t);
     toast._t = setTimeout(() => toast.classList.add('hidden'), 2500);
   });
 
   renderFlags();
+  ['flowSeg','throughSeg','carrySeg','standSeg','acTypeSeg','seatSeg','periodSeg','nationSeg'].forEach(id => setSegValue(id, state[{flowSeg:'flow',throughSeg:'through',carrySeg:'carry_on_only',standSeg:'stand',acTypeSeg:'ac_type',seatSeg:'seat_zone',periodSeg:'period',nationSeg:'nation'}[id]]));
+  syncModePressed();
+  // 启动只调一次：loadDefaults() 内部已调用 callEstimate()（失败则回退备案示例）
   loadDefaults();
-  // 启动后自动打一枪演示服（失败则保留备案数字）
-  callEstimate();
 })();
 </script>
 </body>

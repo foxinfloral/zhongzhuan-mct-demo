@@ -102,6 +102,8 @@ def normalize(request_dict: dict[str, Any]) -> dict[str, Any]:
     if defaults_applied:
         flags["defaults_applied"] = defaults_applied
         labels.append(f"【缺项】已套用默认: {', '.join(defaults_applied)}")
+        for key in defaults_applied:
+            labels.append(f"已用默认 {key}={CANONICAL_DEFAULTS[key]}")
 
     # validate enums / types
     for key, allowed in ENUMS.items():
