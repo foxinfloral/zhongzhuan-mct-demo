@@ -84,7 +84,7 @@ tailwind.config = {
           <span class="chip chip-yellow">对齐 io_v0.2 字段约定</span>
         </div>
         <p class="text-xs text-slate-300 mt-0.5">字段 key 对齐 io_v0.2 字段约定 · API：POST /v1/mct/estimate（本站演示服务）</p>
-        <p id="topStatus" class="text-xs font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">连接演示服…首次加载约半分钟</p>
+        <p id="topStatus" class="text-xs font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">检查演示服…（首次可能约半分钟）</p>
       </div>
     </div>
     <div class="text-[11px] sm:text-xs text-amber-100 bg-amber-500/15 border border-amber-400/40 rounded px-2.5 py-1.5 max-w-lg leading-snug">
@@ -105,10 +105,12 @@ tailwind.config = {
           <div class="section-title">B · 场景输入</div>
           <p class="text-sm font-semibold text-slate-800 mt-0.5">对齐 io_v0.2 字段约定 · 测算器 B5–B13</p>
         </div>
-        <button id="btnLoadDefault" type="button"
-          class="text-sm font-semibold px-3 py-1.5 rounded border border-blue-600 text-blue-700 bg-blue-50 hover:bg-blue-100 transition">
-          载入默认演示场景
+        <!-- 演示默认场景填入按钮（FE3，已过闸）：只填入默认值，需手动点测算 -->
+        <button id="btnLoadDefault" type="button" title="提案·待确认：只填入，不自动测算"
+          class="text-sm font-semibold px-3 py-1.5 rounded border border-amber-500 text-amber-800 bg-amber-50 hover:bg-amber-100 transition">
+          填入演示默认场景
         </button>
+        <span class="text-xs text-slate-600">演示默认，不代表真实旅客</span>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -122,8 +124,8 @@ tailwind.config = {
             <span class="chip chip-amber">【未确认】I转D 是否等同 E-D；E-C 本包几乎无实测样本</span>
           </div>
           <div class="seg" id="flowSeg" role="group" aria-label="flow 流向">
-            <button type="button" data-val="E-C">E-C</button>
-            <button type="button" data-val="E-D" class="active">E-D</button>
+            <button type="button" data-val="E-C" aria-pressed="false">E-C</button>
+            <button type="button" data-val="E-D" aria-pressed="false">E-D</button>
           </div>
           <p class="text-[11px] muted mt-1">测算器仅 E-C / E-D 两档 · 无 I-D 选项</p>
         </div>
@@ -136,8 +138,8 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
           <div class="seg" id="throughSeg" role="group" aria-label="through 通程">
-            <button type="button" data-val="是">是</button>
-            <button type="button" data-val="否" class="active">否</button>
+            <button type="button" data-val="是" aria-pressed="false">是</button>
+            <button type="button" data-val="否" aria-pressed="false">否</button>
           </div>
         </div>
 
@@ -150,8 +152,8 @@ tailwind.config = {
             <span class="chip chip-amber">【争议】行李是否入引擎</span>
           </div>
           <div class="seg" id="carrySeg" role="group" aria-label="carry_on_only 免提">
-            <button type="button" data-val="是">是</button>
-            <button type="button" data-val="否" class="active">否</button>
+            <button type="button" data-val="是" aria-pressed="false">是</button>
+            <button type="button" data-val="否" aria-pressed="false">否</button>
           </div>
           <p class="text-[11px] text-amber-700 mt-1">是 → baggage.included=0；通程或免提 → id_process.included=0</p>
         </div>
@@ -164,9 +166,9 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
           <div class="seg" id="standSeg" role="group" aria-label="stand 机位">
-            <button type="button" data-val="近机位">近机位</button>
-            <button type="button" data-val="远机位" class="active">远机位</button>
-            <button type="button" data-val="远远机位">远远机位</button>
+            <button type="button" data-val="近机位" aria-pressed="false">近机位</button>
+            <button type="button" data-val="远机位" aria-pressed="false">远机位</button>
+            <button type="button" data-val="远远机位" aria-pressed="false">远远机位</button>
           </div>
         </div>
 
@@ -178,8 +180,8 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
           <div class="seg" id="acTypeSeg" role="group" aria-label="ac_type 机型">
-            <button type="button" data-val="窄体" class="active">窄体</button>
-            <button type="button" data-val="宽体">宽体</button>
+            <button type="button" data-val="窄体" aria-pressed="false">窄体</button>
+            <button type="button" data-val="宽体" aria-pressed="false">宽体</button>
           </div>
         </div>
 
@@ -192,9 +194,9 @@ tailwind.config = {
             <span class="chip chip-amber">【未确认】与实测座位号切分对应</span>
           </div>
           <div class="seg" id="seatSeg" role="group" aria-label="seat_zone 舱位">
-            <button type="button" data-val="前舱">前舱</button>
-            <button type="button" data-val="中舱">中舱</button>
-            <button type="button" data-val="后舱" class="active">后舱</button>
+            <button type="button" data-val="前舱" aria-pressed="false">前舱</button>
+            <button type="button" data-val="中舱" aria-pressed="false">中舱</button>
+            <button type="button" data-val="后舱" aria-pressed="false">后舱</button>
           </div>
         </div>
 
@@ -207,10 +209,10 @@ tailwind.config = {
             <span class="chip chip-amber">【未确认】时钟切分</span>
           </div>
           <div class="seg" id="periodSeg" role="group" aria-label="period 时段">
-            <button type="button" data-val="早">早</button>
-            <button type="button" data-val="中" class="active">中</button>
-            <button type="button" data-val="晚">晚</button>
-            <button type="button" data-val="凌晨">凌晨</button>
+            <button type="button" data-val="早" aria-pressed="false">早</button>
+            <button type="button" data-val="中" aria-pressed="false">中</button>
+            <button type="button" data-val="晚" aria-pressed="false">晚</button>
+            <button type="button" data-val="凌晨" aria-pressed="false">凌晨</button>
           </div>
         </div>
 
@@ -223,8 +225,8 @@ tailwind.config = {
             <span class="chip chip-amber">【未确认】空白国籍是否=国内</span>
           </div>
           <div class="seg" id="nationSeg" role="group" aria-label="nation 旅客国籍">
-            <button type="button" data-val="国内">国内</button>
-            <button type="button" data-val="外籍" class="active">外籍</button>
+            <button type="button" data-val="国内" aria-pressed="false">国内</button>
+            <button type="button" data-val="外籍" aria-pressed="false">外籍</button>
           </div>
         </div>
 
@@ -237,7 +239,7 @@ tailwind.config = {
             <span class="chip chip-amber">【未确认】可用窗口时钟</span>
           </div>
           <div class="flex items-center gap-2">
-            <input id="windowMin" aria-describedby="windowErr" type="number" min="1" max="300" step="1" value="55"
+            <input id="windowMin" aria-describedby="windowErr" type="number" min="1" max="300" step="1" value="" placeholder="如 55" required aria-required="true"
               class="w-28 text-sm border border-slate-300 rounded px-2.5 py-2 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <span class="text-sm text-slate-500">分钟</span>
           </div>
@@ -253,8 +255,8 @@ tailwind.config = {
             <span class="fkey-hint">对齐 io_v0.2 字段约定</span>
           </div>
           <div class="flex gap-1 flex-wrap">
-            <button type="button" id="modeExcel" class="src-tab px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50">excel_default</button>
-            <button type="button" id="modeHybrid" class="src-tab px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50 active">hybrid_t3</button>
+            <button type="button" id="modeExcel" class="src-tab px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50" aria-pressed="false">excel_default</button>
+            <button type="button" id="modeHybrid" class="src-tab px-3 py-1.5 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50" aria-pressed="false">hybrid_t3</button>
           </div>
         </div>
       </div>
@@ -294,7 +296,8 @@ tailwind.config = {
         <div class="text-xs font-semibold text-slate-500 mb-1">引擎 / API</div>
         <div class="text-sm font-mono text-slate-500">POST /v1/mct/estimate</div>
         <div class="text-sm font-mono text-slate-400 mt-0.5" id="engineLine">estimate 契约 io_v0.2 · engine: mct-svc-0.1-demo</div>
-        <div id="apiStatus" class="text-xs font-mono mt-1 text-slate-500" role="status" aria-live="polite">连接演示服…首次加载约半分钟</div>
+        <div id="apiStatus" class="text-xs font-mono mt-1 text-slate-500" role="status" aria-live="polite">待测算 · 请完整填写全部必填项</div>
+        <p id="formErr" class="text-xs font-semibold text-red-700 mt-1" role="alert" aria-live="polite">请完整填写全部必填项后测算</p>
       </div>
 
       <!-- 超时：禁用 -->
@@ -331,39 +334,39 @@ tailwind.config = {
         <div class="section-title">D · 结果总览 summary</div>
         <div class="flex items-center gap-2 flex-wrap mt-0.5">
           <p class="text-sm font-semibold text-slate-800">p50_min / p90_min / p95_min · risk_level · action</p>
-          <span class="chip chip-yellow" id="srcChipD">连接演示服…</span>
+          <span class="chip chip-gray" id="srcChipD">待测算</span>
           <span class="chip chip-gray">分位为演示值</span>
           <span class="chip chip-amber">【争议】风险三套语言 · 当前仅挂「窗口 vs 分位」· 另两套未接入</span>
         </div>
       </div>
-      <div class="text-xs text-slate-500 font-mono">mode=<span id="dispMode">hybrid_t3</span></div>
+      <div class="text-xs text-slate-500 font-mono">mode=<span id="dispMode">—</span></div>
     </div>
 
-    <div id="riskBanner" class="risk-banner rounded-lg px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-white" style="background:#DC2626">
+    <div id="riskBanner" class="risk-banner rounded-lg px-4 py-3 mb-4 flex flex-wrap items-center justify-between gap-3 text-white" style="background:#475569">
       <div>
         <div class="text-xs font-semibold uppercase tracking-wider opacity-90">risk_level（相对 window_min · 窗口 vs 分位）</div>
-        <div class="text-2xl font-black tracking-tight" id="riskLabel">极高风险</div>
-        <div class="text-sm mt-1 opacity-95" id="riskAction">专人保障（急转）/ 预改签</div>
+        <div class="text-2xl font-black tracking-tight" id="riskLabel">请完整填写全部必填项后测算</div>
+        <div class="text-sm mt-1 opacity-95" id="riskAction">—</div>
         <div class="text-xs mt-0.5 opacity-90 font-semibold">推荐≠派单 · 不自动执行</div>
       </div>
       <div class="text-right text-sm opacity-95 font-mono">
-        <div>window_min=<span id="riskWindow">55</span></div>
-        <div class="text-xs opacity-80">mode=<span id="riskSource">hybrid_t3</span></div>
+        <div>window_min=<span id="riskWindow">—</span></div>
+        <div class="text-xs opacity-80">mode=<span id="riskSource">—</span></div>
       </div>
     </div>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
         <div class="text-xs font-semibold text-slate-500 font-mono">p50_min</div>
-        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP50">74.40</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
+        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP50">—</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
       </div>
       <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
         <div class="text-xs font-semibold text-slate-500 font-mono">p90_min</div>
-        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP90">94.22</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
+        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP90">—</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
       </div>
       <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
         <div class="text-xs font-semibold text-slate-500 font-mono">p95_min</div>
-        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP95">99.87</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
+        <div class="text-2xl font-bold font-mono text-slate-900 mt-1"><span id="vP95">—</span><span class="text-sm font-medium text-slate-500 ml-1">min</span></div>
       </div>
       <div class="rounded-lg border border-dashed border-slate-300 bg-slate-100/80 p-3 opacity-60">
         <div class="flex items-center gap-1.5">
@@ -384,7 +387,7 @@ tailwind.config = {
         <div class="section-title">E · 基线对照 + nodes[]</div>
         <p class="text-sm font-semibold text-slate-800 mt-0.5">excel_default vs hybrid_t3 · 10 节点明细</p>
       </div>
-      <span class="chip chip-yellow" id="srcChipE">连接演示服…</span>
+      <span class="chip chip-gray" id="srcChipE">待测算</span>
     </div>
 
     <table class="cmp w-full min-w-[520px] mb-5">
@@ -401,27 +404,27 @@ tailwind.config = {
       <tbody>
         <tr id="rowExcel">
           <td class="font-semibold font-mono text-sm">excel_default</td>
-          <td class="font-mono" id="cmpExcelP50">72</td>
-          <td class="font-mono" id="cmpExcelP90">97</td>
-          <td class="font-mono" id="cmpExcelP95">104.13</td>
-          <td><span id="riskExcelChip" class="chip">极高风险</span></td>
-          <td class="text-xs" id="actionExcel">专人保障（急转）/ 预改签</td>
+          <td class="font-mono" id="cmpExcelP50">—</td>
+          <td class="font-mono" id="cmpExcelP90">—</td>
+          <td class="font-mono" id="cmpExcelP95">—</td>
+          <td><span id="riskExcelChip" class="chip">—</span></td>
+          <td class="text-xs" id="actionExcel">—</td>
         </tr>
         <tr id="rowHybrid" class="bg-blue-50/40">
           <td class="font-semibold font-mono text-sm">hybrid_t3</td>
-          <td class="font-mono" id="cmpHybridP50">74.40</td>
-          <td class="font-mono" id="cmpHybridP90">94.22</td>
-          <td class="font-mono" id="cmpHybridP95">99.87</td>
-          <td><span id="riskHybridChip" class="chip">极高风险</span></td>
-          <td class="text-xs" id="actionHybrid">专人保障（急转）/ 预改签</td>
+          <td class="font-mono" id="cmpHybridP50">—</td>
+          <td class="font-mono" id="cmpHybridP90">—</td>
+          <td class="font-mono" id="cmpHybridP95">—</td>
+          <td><span id="riskHybridChip" class="chip">—</span></td>
+          <td class="text-xs" id="actionHybrid">—</td>
         </tr>
       </tbody>
     </table>
 
     <div class="flex items-center gap-2 mb-2 flex-wrap">
       <p class="text-sm font-semibold text-slate-700">节点明细 nodes[]（计入开关只读，由 through / carry_on_only / stand 推导）</p>
-      <span class="chip chip-yellow" id="srcChipNodes">连接演示服…</span>
-      <span class="text-xs text-slate-400 font-mono">included_count=<span id="includedCount">10</span></span>
+      <span class="chip chip-gray" id="srcChipNodes">待测算</span>
+      <span class="text-xs text-slate-400 font-mono">included_count=<span id="includedCount">—</span></span>
     </div>
     <div class="overflow-x-auto">
       <table class="nodes min-w-[720px]">
@@ -573,18 +576,21 @@ tailwind.config = {
     { key:'degrade_flow_unconfirmed', text:'【未确认】降级静态 MCT 对应哪条流向/通程非通程；本版不返回静态分钟' }
   ];
 
+  // FE3：全部必填、无预填
   const state = {
-    flow: 'E-D',
-    through: '否',
-    carry_on_only: '否',
-    stand: '远机位',
-    ac_type: '窄体',
-    seat_zone: '后舱',
-    period: '中',
-    nation: '外籍',
-    window_min: 55,
-    mode: 'hybrid_t3'
+    flow: null,
+    through: null,
+    carry_on_only: null,
+    stand: null,
+    ac_type: null,
+    seat_zone: null,
+    period: null,
+    nation: null,
+    window_min: null,
+    mode: null
   };
+  let hasResult = false; // 有过结果后，改输入才自动重算 / 标过期
+  const REQUIRED = ['flow','through','carry_on_only','stand','ac_type','seat_zone','period','nation','window_min','mode'];
 
 
   const API_BASE = '';
@@ -615,6 +621,7 @@ tailwind.config = {
     b.textContent = on ? '已过期·请重新测算（下方为上一次结果；当前输入不合法，未发送请求）' : '';
   }
   function setResultState(st, data) {
+    hasResult = true;
     setStale(false);
     const secs = ['secSummary', 'secCompare'].map(id => document.getElementById(id));
     secs.forEach(el => { el.classList.toggle('state-fallback', st === 'fallback'); el.classList.toggle('state-invalid', st === 'invalid'); });
@@ -638,18 +645,37 @@ tailwind.config = {
     const raw = String(document.getElementById('windowMin').value).trim();
     const w = Number(raw);
     const ok = raw !== '' && Number.isFinite(w) && w > 0;
-    return { ok: ok, w: w };
+    return { ok: ok, w: w, blank: raw === '' };
   }
+  /** 全部必填：列出缺项字段；window_min 另判 >0 */
   function syncValidation() {
     const v = readWindow();
-    document.getElementById('windowErr').classList.toggle('hidden', v.ok);
-    document.getElementById('windowMin').setAttribute('aria-invalid', v.ok ? 'false' : 'true');
+    const missing = REQUIRED.filter(k => k === 'window_min' ? v.blank : !state[k]);
+    const badWindow = !v.blank && !v.ok;
+    document.getElementById('windowErr').classList.toggle('hidden', !badWindow);
+    document.getElementById('windowMin').setAttribute('aria-invalid', (badWindow || v.blank) ? 'true' : 'false');
+    const fe = document.getElementById('formErr');
+    fe.textContent = missing.length ? ('未填必填项：' + missing.join('、') + ' · 未发送请求') : '';
+    fe.classList.toggle('hidden', !missing.length);
+    const ok = !missing.length && v.ok;
     const btn = document.getElementById('btnRun');
-    btn.disabled = !v.ok;
-    btn.classList.toggle('opacity-50', !v.ok);
-    btn.classList.toggle('cursor-not-allowed', !v.ok);
-    return v;
+    btn.disabled = !ok;
+    btn.classList.toggle('opacity-50', !ok);
+    btn.classList.toggle('cursor-not-allowed', !ok);
+    return { ok: ok, w: v.w, missing: missing, badWindow: badWindow };
   }
+  function blockedMsg(v) {
+    return v.missing.length ? ('未填必填项：' + v.missing.join('、') + ' · 未发送请求') : '入参不合法（前端校验）：window_min 须为大于 0 的数字 · 未发送请求';
+  }
+  /** 输入变化：未完整 → 提示（有结果则标过期）；完整且已有结果 → 自动重算 */
+  function onInputChanged(debounced) {
+    clearTimeout(_wTimer);
+    const v = syncValidation();
+    if (!v.ok) { setApiStatus(blockedMsg(v), false); if (hasResult) setStale(true); return; }
+    if (!hasResult) { setApiStatus('必填项已齐 · 请点「调用测算接口」', true); return; }
+    if (debounced) _wTimer = setTimeout(() => callEstimate(), 300); else callEstimate();
+  }
+  let _wTimer;
 
   function newRequestId() {
     return 'demo-' + state.mode + '-' + state.window_min + '-' + Date.now() + '-' + Math.random().toString(16).slice(2, 6);
@@ -657,7 +683,7 @@ tailwind.config = {
 
   async function callEstimate() {
     const v = syncValidation();
-    if (!v.ok) { setApiStatus('入参不合法（前端校验）：window_min 须为大于 0 的数字 · 未发送请求', false); setStale(true); return 'blocked'; }
+    if (!v.ok) { setApiStatus(blockedMsg(v), false); if (hasResult) setStale(true); return 'blocked'; }
     state.window_min = v.w;
     const body = {
       flow: state.flow,
@@ -923,7 +949,7 @@ tailwind.config = {
       if (!btn) return;
       state[key] = btn.getAttribute('data-val');
       setSegValue(id, state[key]);
-      callEstimate();
+      onInputChanged(false);
     });
   }
 
@@ -1041,7 +1067,8 @@ tailwind.config = {
     renderNodes();
   }
 
-  function loadDefaults() {
+  /** 演示默认场景填入（FE3，已过闸）：只填入默认值，不自动测算；按钮 #btnLoadDefault */
+  function fillDemoDefaults() {
     state.flow = 'E-D';
     state.through = '否';
     state.carry_on_only = '否';
@@ -1061,7 +1088,12 @@ tailwind.config = {
     setSegValue('seatSeg', state.seat_zone);
     setSegValue('periodSeg', state.period);
     setSegValue('nationSeg', state.nation);
-    callEstimate();
+    syncModePressed();
+    document.getElementById('modeExcel').classList.toggle('active', state.mode === 'excel_default');
+    document.getElementById('modeHybrid').classList.toggle('active', state.mode === 'hybrid_t3');
+    const v = syncValidation();
+    if (hasResult) setStale(true);
+    setApiStatus(v.ok ? '已填入演示默认场景 · 请点「调用测算接口」' : blockedMsg(v), v.ok);
   }
 
   bindSeg('flowSeg', 'flow');
@@ -1073,10 +1105,17 @@ tailwind.config = {
   bindSeg('periodSeg', 'period');
   bindSeg('nationSeg', 'nation');
 
-  let _wTimer; document.getElementById('windowMin').addEventListener('input', () => { clearTimeout(_wTimer); if (!syncValidation().ok) { setApiStatus('入参不合法（前端校验）：window_min 须为大于 0 的数字 · 未发送请求', false); setStale(true); return; } _wTimer = setTimeout(() => callEstimate(), 300); });
-  document.getElementById('modeExcel').addEventListener('click', () => { state.mode = 'excel_default'; callEstimate(); });
-  document.getElementById('modeHybrid').addEventListener('click', () => { state.mode = 'hybrid_t3'; callEstimate(); });
-  document.getElementById('btnLoadDefault').addEventListener('click', loadDefaults);
+  document.getElementById('windowMin').addEventListener('input', () => onInputChanged(true));
+  function pickMode(m) {
+    state.mode = m;
+    syncModePressed();
+    document.getElementById('modeExcel').classList.toggle('active', m === 'excel_default');
+    document.getElementById('modeHybrid').classList.toggle('active', m === 'hybrid_t3');
+    onInputChanged(false);
+  }
+  document.getElementById('modeExcel').addEventListener('click', () => pickMode('excel_default'));
+  document.getElementById('modeHybrid').addEventListener('click', () => pickMode('hybrid_t3'));
+  document.getElementById('btnLoadDefault').addEventListener('click', fillDemoDefaults);
   document.getElementById('btnRun').addEventListener('click', async () => {
     const st = await callEstimate();
     const toast = document.getElementById('runToast');
@@ -1089,8 +1128,13 @@ tailwind.config = {
   renderFlags();
   ['flowSeg','throughSeg','carrySeg','standSeg','acTypeSeg','seatSeg','periodSeg','nationSeg'].forEach(id => setSegValue(id, state[{flowSeg:'flow',throughSeg:'through',carrySeg:'carry_on_only',standSeg:'stand',acTypeSeg:'ac_type',seatSeg:'seat_zone',periodSeg:'period',nationSeg:'nation'}[id]]));
   syncModePressed();
-  // 启动只调一次：loadDefaults() 内部已调用 callEstimate()（失败则回退备案示例）
-  loadDefaults();
+  // FE3：必填、无预填 → 加载时不调用 estimate；只做 GET /v1/health 检查服务是否在线
+  document.getElementById('flagsList').innerHTML = '<li class="text-slate-400 text-sm">测算后显示本次 flags.labels</li>';
+  document.getElementById('nodesBody').innerHTML = '<tr><td colspan="8" class="text-xs text-slate-400">请完整填写全部必填项后测算</td></tr>';
+  syncValidation();
+  fetch(API_BASE + '/v1/health').then(r => {
+    setTopStatus(r.ok ? '就绪 · 演示服在线 · 待测算' : ('演示服异常 HTTP ' + r.status + ' · 待测算'));
+  }).catch(() => setTopStatus('演示服暂未连上 · 可先填写 · 测算时将重试'));
 })();
 </script>
 </body>

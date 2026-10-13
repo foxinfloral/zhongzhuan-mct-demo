@@ -60,7 +60,7 @@ tailwind.config = {
       <div>
         <h1 class="text-sm font-bold leading-tight">动态 MCT · 最小闭环</h1>
         <p class="text-[10px] text-slate-300 mt-0.5">estimate 契约 io_v0.2 · 决策层 v0.3 设计稿、未开实现闸（前端演示计算 · quantile_anchor_proxy）</p>
-        <p id="topStatus" class="text-[10px] font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">连接演示服…首次加载约半分钟</p>
+        <p id="topStatus" class="text-[10px] font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">检查演示服…（首次可能约半分钟）</p>
       </div>
       <nav class="flex gap-1 ml-2" aria-label="页面">
         <a href="index.html" class="tab-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold hover:bg-ops-800">测算 (index)</a>
@@ -94,34 +94,37 @@ tailwind.config = {
     <div class="section-title">输入 · POST /v1/mct/estimate（estimate 契约 io_v0.2）</div>
     <div class="grid grid-cols-2 gap-1.5">
       <label class="block"><span class="fkey">flow</span>
-        <select id="flow" class="w-full border rounded px-1.5 py-1"><option>E-D</option><option>E-C</option></select></label>
+        <select id="flow" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option>E-D</option><option>E-C</option></select></label>
       <label class="block"><span class="fkey">through</span>
-        <select id="through" class="w-full border rounded px-1.5 py-1"><option>否</option><option>是</option></select></label>
+        <select id="through" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option>否</option><option>是</option></select></label>
       <label class="block"><span class="fkey">carry_on_only</span>
-        <select id="carry_on_only" class="w-full border rounded px-1.5 py-1"><option>否</option><option>是</option></select></label>
+        <select id="carry_on_only" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option>否</option><option>是</option></select></label>
       <label class="block"><span class="fkey">stand</span>
-        <select id="stand" class="w-full border rounded px-1.5 py-1"><option>远机位</option><option>近机位</option><option>远远机位</option></select></label>
+        <select id="stand" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option>远机位</option><option>近机位</option><option>远远机位</option></select></label>
       <label class="block"><span class="fkey">ac_type</span>
-        <select id="ac_type" class="w-full border rounded px-1.5 py-1"><option>窄体</option><option>宽体</option></select></label>
+        <select id="ac_type" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option>窄体</option><option>宽体</option></select></label>
       <label class="block"><span class="fkey">seat_zone</span>
-        <select id="seat_zone" class="w-full border rounded px-1.5 py-1"><option>后舱</option><option>中舱</option><option>前舱</option></select></label>
+        <select id="seat_zone" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option>后舱</option><option>中舱</option><option>前舱</option></select></label>
       <label class="block"><span class="fkey">period</span>
-        <select id="period" class="w-full border rounded px-1.5 py-1"><option>中</option><option>早</option><option>晚</option><option>凌晨</option></select></label>
+        <select id="period" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option>中</option><option>早</option><option>晚</option><option>凌晨</option></select></label>
       <label class="block"><span class="fkey">nation</span>
-        <select id="nation" class="w-full border rounded px-1.5 py-1"><option>外籍</option><option value="国内">国内（中国籍）</option></select></label>
+        <select id="nation" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option>外籍</option><option value="国内">国内（中国籍）</option></select></label>
       <label class="block"><span class="fkey">window_min</span>
-        <input id="window_min" type="number" min="1" step="any" value="55" aria-describedby="windowErr" class="w-full border rounded px-1.5 py-1" /></label>
+        <input id="window_min" type="number" min="1" step="any" value="" placeholder="如 55" required aria-required="true" aria-describedby="windowErr" class="w-full border rounded px-1.5 py-1" /></label>
       <label class="block"><span class="fkey">mode</span>
-        <select id="mode" class="w-full border rounded px-1.5 py-1"><option value="hybrid_t3">hybrid_t3</option><option value="excel_default">excel_default</option></select></label>
+        <select id="mode" required aria-required="true" class="w-full border rounded px-1.5 py-1"><option value="" selected>请选择</option><option value="hybrid_t3">hybrid_t3</option><option value="excel_default">excel_default</option></select></label>
     </div>
     <p id="windowErr" class="hidden text-[10px] font-semibold text-red-700" role="alert">window_min 须为大于 0 的数字（未发送请求）</p>
+    <p id="formErr" class="text-[10px] font-semibold text-red-700" role="alert" aria-live="polite">请完整填写全部必填项后测算</p>
     <label class="block"><span class="fkey">request_id（每次测算自动生成 · 回灌沿用当前结果的 id）</span>
       <input id="request_id" type="text" value="" readonly placeholder="测算后生成" class="w-full border rounded px-1.5 py-1 font-mono text-[11px] bg-slate-50" /></label>
     <div class="flex gap-1.5">
       <button type="button" id="btnEstimate" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded py-1.5 text-xs">测算 + 决策层</button>
-      <button type="button" id="btnReset" class="px-2 border rounded text-xs font-semibold bg-slate-50">默认55</button>
+      <!-- 演示默认场景填入按钮（FE3，已过闸）：只填入默认值，需手动点测算 -->
+      <button type="button" id="btnReset" class="px-2 border border-amber-400 rounded text-[11px] font-semibold bg-amber-50" title="提案·待确认：只填入，不自动测算">填入演示默认场景</button>
+      <span class="text-[11px] text-slate-600">演示默认，不代表真实旅客</span>
     </div>
-    <p id="apiStatus" class="text-[10px] text-slate-500 font-mono leading-snug" role="status" aria-live="polite">连接演示服…首次加载约半分钟</p>
+    <p id="apiStatus" class="text-[10px] text-slate-500 font-mono leading-snug" role="status" aria-live="polite">待测算 · 请完整填写全部必填项</p>
     <div class="flex flex-wrap gap-1 pt-1">
       <span class="chip chip-amber" title="S1 配置">s1_min=20 · unconfirmed_config</span>
       <span class="chip chip-red">success_prob_not_calibrated</span>
@@ -139,7 +142,7 @@ tailwind.config = {
         <div class="flex flex-wrap gap-1">
           <span class="chip chip-purple occ-line-only" id="chipKind">success_prob_kind=quantile_anchor_proxy</span>
           <span class="chip chip-red">概率未校准</span>
-          <span class="chip chip-yellow" id="srcChip">连接演示服…</span>
+          <span class="chip chip-gray" id="srcChip">待测算</span>
         </div>
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -172,7 +175,7 @@ tailwind.config = {
       </div>
       <p class="text-[10px] text-slate-500 mt-1.5">注：success_prob 为分档锚点（P50/P90/P95 对应的代理值），不是连续概率曲线。</p>
       <div id="riskBanner" class="mt-2 rounded px-2.5 py-1.5 text-xs font-semibold text-white bg-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
-        <span>risk_level=<span id="dispRisk">—</span></span>
+        <span>risk_level=<span id="dispRisk">请完整填写全部必填项后测算</span></span>
         <span>v0.2 action=<span id="dispActionV02">—</span></span>
         <span>recommended=<span id="dispRec" class="underline">—</span> <span class="opacity-90">（≠派单）</span></span>
       </div>
@@ -256,7 +259,7 @@ tailwind.config = {
     </div>
 
     <div class="card p-2 text-[10px] text-slate-500 leading-relaxed" id="opsOnlyHint">
-      OCC/一线强制全量 flags；旅客端降术语。本页不改生产角标（index.html 保持原 badge）。
+      OCC/一线强制全量 flags；旅客端降术语。
     </div>
   </section>
 </main>
@@ -570,19 +573,28 @@ tailwind.config = {
     }
   }
 
+  const REQUIRED = ['flow','through','carry_on_only','stand','ac_type','seat_zone','period','nation','window_min','mode'];
   function readWindow() {
     const raw = String($('window_min').value).trim();
     const w = Number(raw);
-    return { ok: raw !== '' && Number.isFinite(w) && w > 0, w: w };
+    return { ok: raw !== '' && Number.isFinite(w) && w > 0, w: w, blank: raw === '' };
   }
+  /** 全部必填：缺项列名；window_min 另判 >0 */
   function syncValidation() {
     const v = readWindow();
-    $('windowErr').classList.toggle('hidden', v.ok);
-    $('window_min').setAttribute('aria-invalid', v.ok ? 'false' : 'true');
-    $('btnEstimate').disabled = !v.ok;
-    $('btnEstimate').classList.toggle('opacity-50', !v.ok);
-    $('btnEstimate').classList.toggle('cursor-not-allowed', !v.ok);
-    return v;
+    const missing = REQUIRED.filter(k => k === 'window_min' ? v.blank : !$(k).value);
+    REQUIRED.forEach(k => $(k).setAttribute('aria-invalid', missing.indexOf(k) >= 0 ? 'true' : 'false'));
+    const badWindow = !v.blank && !v.ok;
+    if (badWindow) $('window_min').setAttribute('aria-invalid', 'true');
+    $('windowErr').classList.toggle('hidden', !badWindow);
+    const fe = $('formErr');
+    fe.textContent = missing.length ? ('未填必填项：' + missing.join('、') + ' · 未发送请求') : '';
+    fe.classList.toggle('hidden', !missing.length);
+    const ok = !missing.length && v.ok;
+    $('btnEstimate').disabled = !ok;
+    $('btnEstimate').classList.toggle('opacity-50', !ok);
+    $('btnEstimate').classList.toggle('cursor-not-allowed', !ok);
+    return { ok: ok, w: v.w, missing: missing, badWindow: badWindow };
   }
   function newRequestId(mode, w) {
     return 'demo-' + mode + '-' + w + '-' + Date.now() + '-' + Math.random().toString(16).slice(2, 6);
@@ -668,9 +680,11 @@ tailwind.config = {
   async function callEstimate() {
     const v = syncValidation();
     if (!v.ok) {
-      $('apiStatus').textContent = '入参不合法（前端校验）：window_min 须为大于 0 的数字 · 未发送请求';
+      $('apiStatus').textContent = v.missing.length
+        ? ('未填必填项：' + v.missing.join('、') + ' · 未发送请求')
+        : '入参不合法（前端校验）：window_min 须为大于 0 的数字 · 未发送请求';
       $('apiStatus').classList.add('text-red-600');
-      setStale(true);
+      if (state.resultState) setStale(true);
       return;
     }
     const body = bodyFromForm();
@@ -820,7 +834,8 @@ tailwind.config = {
     }
   }
 
-  function resetDefault() {
+  /** 演示默认场景填入（FE3，已过闸）：只填入默认值，不自动测算；按钮 #btnReset */
+  function fillDemoDefaults() {
     $('flow').value = 'E-D';
     $('through').value = '否';
     $('carry_on_only').value = '否';
@@ -831,12 +846,16 @@ tailwind.config = {
     $('nation').value = '外籍';
     $('window_min').value = '55';
     $('mode').value = 'hybrid_t3';
-    callEstimate();
+    syncValidation();
+    if (state.resultState) setStale(true);
+    $('apiStatus').textContent = '已填入演示默认场景 · 请点「测算 + 决策层」';
+    $('apiStatus').classList.remove('text-red-600');
   }
 
   $('btnEstimate').addEventListener('click', callEstimate);
-  $('window_min').addEventListener('input', () => { if (!syncValidation().ok) setStale(true); });
-  $('btnReset').addEventListener('click', resetDefault);
+  $('window_min').addEventListener('input', () => { if (!syncValidation().ok && state.resultState) setStale(true); });
+  REQUIRED.filter(k => k !== 'window_min').forEach(k => $(k).addEventListener('change', () => { if (!syncValidation().ok && state.resultState) setStale(true); }));
+  $('btnReset').addEventListener('click', fillDemoDefaults);
   $('btnFeedback').addEventListener('click', callFeedback);
   document.querySelectorAll('.aud-btn').forEach(b => {
     b.addEventListener('click', () => {
@@ -846,8 +865,15 @@ tailwind.config = {
     });
   });
 
-  // auto-run default hybrid 55
-  resetDefault();
+  // FE3：必填、无预填 → 加载时不调用 estimate；只做 GET /v1/health 检查服务是否在线
+  syncValidation();
+  $('btnFeedback').disabled = true;
+  $('btnFeedback').classList.add('opacity-50');
+  $('fbStatus').textContent = '未测算 · 不回灌';
+  $('flagsLabels').innerHTML = '<li class="text-slate-400">测算后显示本次 flags.labels</li>';
+  fetch(API_BASE + '/v1/health').then(r => {
+    $('topStatus').textContent = r.ok ? '就绪 · 演示服在线 · 待测算' : ('演示服异常 HTTP ' + r.status + ' · 待测算');
+  }).catch(() => { $('topStatus').textContent = '演示服暂未连上 · 可先填写 · 测算时将重试'; });
 })();
 </script>
 </body>
