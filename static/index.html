@@ -69,6 +69,77 @@ tailwind.config = {
   .risk-dark * { opacity:1 !important; }
   .stale-banner { background:#FEF3C7; color:#78350F; border:2px solid #B45309; font-weight:700; }
 </style>
+<script>
+/* FE4 冷启动唤醒提示：GET /v1/health（相对路径，与页面 API_BASE 相同）。
+ * 只做健康检查，绝不调用 estimate。1.5s 未应答 → 显示横幅；health OK → 自动隐藏；60s 仍失败 → 显示刷新/重试提示。 */
+(function () {
+  var MSG = {
+    zh: { waking: '服务正在唤醒（免费主机冷启动）：首次打开可能需要约 15–30 秒，偶尔更久…', failed: '服务仍未就绪（已等待 60 秒）。请刷新页面，或', retry: '点此重试', tail: '。' },
+    en: { waking: 'Waking up the demo service (free-tier host cold start). First load may take about 15–30 seconds, occasionally longer…', failed: 'The service is still not ready after 60 s. Please refresh the page, or', retry: 'retry now', tail: '.' }
+  };
+  function ensureStyle() {
+    if (document.getElementById('wakeStyle')) return;
+    var s = document.createElement('style');
+    s.id = 'wakeStyle';
+    s.textContent = '#wakeBanner{position:fixed;top:0;left:0;right:0;z-index:60;background:#fffbeb;border-bottom:1px solid #fcd34d;color:#78350f;font-size:13px;padding:6px 12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}' +
+      '#wakeBanner .wake-bar{height:3px;margin:5px auto 0;max-width:420px;background:#fde68a;border-radius:2px;overflow:hidden;position:relative}' +
+      '#wakeBanner .wake-bar>i{position:absolute;top:0;bottom:0;width:35%;background:#f59e0b;border-radius:2px;animation:wakeSlide 1.4s ease-in-out infinite}' +
+      '@keyframes wakeSlide{0%{left:-35%}100%{left:100%}}' +
+      '#wakeBanner.wake-fail{background:#fef2f2;border-color:#fca5a5;color:#7f1d1d}#wakeBanner.wake-fail .wake-bar{display:none}' +
+      '#wakeBanner button{text-decoration:underline;font-weight:600;color:inherit;background:none;border:0;cursor:pointer;padding:0 2px}';
+    document.head.appendChild(s);
+  }
+  /**
+   * apiBase: 页面已有的 API_BASE；onDone(ok, info): ok=true 时 info 为 Response；ok=false 时 info 为最后的 Response 或 Error
+   */
+  window.mctWakeHealth = function (apiBase, onDone, opts) {
+    opts = opts || {};
+    var t = MSG[opts.lang === 'en' ? 'en' : 'zh'];
+    var SHOW_AFTER = 1500, GIVE_UP = 60000, RETRY_EVERY = 4000, PER_TRY = 10000;
+    var start = Date.now(), done = false, banner = null, showTimer;
+    function show(fail) {
+      ensureStyle();
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'wakeBanner';
+        banner.setAttribute('role', 'status');
+        banner.setAttribute('aria-live', 'polite');
+        document.body.appendChild(banner);
+      }
+      if (fail) {
+        banner.className = 'wake-fail';
+        banner.innerHTML = '<span>' + t.failed + ' <button type="button" id="wakeRetry">' + t.retry + '</button>' + t.tail + '</span>';
+        document.getElementById('wakeRetry').onclick = function () { hide(); window.mctWakeHealth(apiBase, onDone, opts); };
+      } else {
+        banner.className = '';
+        banner.innerHTML = '<span>' + t.waking + '</span><div class="wake-bar"><i></i></div>';
+      }
+    }
+    function hide() { if (banner) { banner.remove(); banner = null; } }
+    function attempt() {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var to = setTimeout(function () { if (ctl) ctl.abort(); }, PER_TRY);
+      fetch(apiBase + '/v1/health', ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' })
+        .then(function (r) { clearTimeout(to); if (r.ok) return finish(true, r); retryOrFail(r); })
+        .catch(function (e) { clearTimeout(to); retryOrFail(e); });
+    }
+    function retryOrFail(info) {
+      if (done) return;
+      if (Date.now() - start >= GIVE_UP) return finish(false, info);
+      setTimeout(attempt, RETRY_EVERY);
+    }
+    function finish(ok, info) {
+      if (done) return;
+      done = true;
+      clearTimeout(showTimer);
+      if (ok) hide(); else show(true);
+      if (onDone) onDone(ok, info);
+    }
+    showTimer = setTimeout(function () { if (!done) show(false); }, SHOW_AFTER);
+    attempt();
+  };
+})();
+</script>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
 
@@ -84,7 +155,13 @@ tailwind.config = {
           <span class="chip chip-yellow">对齐 io_v0.2 字段约定</span>
         </div>
         <p class="text-xs text-slate-300 mt-0.5">字段 key 对齐 io_v0.2 字段约定 · API：POST /v1/mct/estimate（本站演示服务）</p>
-        <p id="topStatus" class="text-xs font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">检查演示服…（首次可能约半分钟）</p>
+        <p id="topStatus" class="text-xs font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">检查演示服…（首次打开可能需要约 15–30 秒，偶尔更久）</p>
+      <nav class="flex flex-wrap gap-1.5 mt-1 text-[11px]" aria-label="页面导航">
+          <span class="px-2 py-0.5 rounded border border-blue-400/60 bg-blue-500/20 font-semibold">测算 (index)</span>
+          <a href="min-loop.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700 underline-offset-2">最小闭环演示 →</a>
+          <a href="en.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700">English tour</a>
+          <a href="api.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700">API 参考</a>
+        </nav>
       </div>
     </div>
     <div class="text-[11px] sm:text-xs text-amber-100 bg-amber-500/15 border border-amber-400/40 rounded px-2.5 py-1.5 max-w-lg leading-snug">
@@ -92,6 +169,32 @@ tailwind.config = {
     </div>
   </div>
 </header>
+<div class="max-w-7xl mx-auto px-4 pt-3">
+<!-- FE4：白话简介 + 术语表 -->
+<section id="introBox" class="bg-white border border-blue-200 rounded-lg p-3 text-[13px] leading-relaxed text-slate-700">
+  <div class="font-semibold text-blue-900 mb-1">这是什么？</div>
+  <p>这是一个<strong>动态 MCT 估算演示</strong>。MCT = Minimum Connecting Time（最短中转衔接时间）：旅客从前段航班落地到赶上后段航班，中间各环节（下机、摆渡、边检、海关、行李、手续、步行、安检等）大约需要多少分钟。页面按你选的场景估算 P50/P90/P95 分钟数，并与「可用衔接窗口」对比给出风险档。</p>
+  <p class="mt-1"><strong>服务对象：</strong>枢纽中转运行 / OCC 与一线保障人员（看风险与建议动作），以及旅客提示（白话结论）。</p>
+  <p class="mt-1 text-amber-800"><strong>重要：</strong>仅为演示，非生产系统；成功几率是<strong>未校准的代理值</strong>，不是承诺能赶上；页面上的「推荐」只是界面建议，不会派单、不会自动改签。</p>
+  <details class="mt-2">
+    <summary class="cursor-pointer font-semibold text-blue-800">术语表（点开）</summary>
+    <dl class="mt-1.5 grid sm:grid-cols-2 gap-x-4 gap-y-1 text-[12px]">
+      <div><dt class="inline font-semibold">MCT</dt><dd class="inline"> — 最短中转衔接时间（Minimum Connecting Time）的估算。</dd></div>
+      <div><dt class="inline font-semibold">通程（through）</dt><dd class="inline"> — 是/否。选「是」时不计「I-D 办理手续」环节。英文常称 through check-in；是否等同行李直挂【未确认】。</dd></div>
+      <div><dt class="inline font-semibold">免提（carry_on_only）</dt><dd class="inline"> — 是/否，即仅随身行李、无需提取托运行李。选「是」时不计「提取行李」与「I-D 办理手续」环节。</dd></div>
+      <div><dt class="inline font-semibold">E-C / E-D（flow）</dt><dd class="inline"> — 测算器的两档流向字段（默认 E-D）。业务含义【未确认】；实测「I转D」是否等同 E-D【未确认】；E-C 本包几乎无实测样本。</dd></div>
+      <div><dt class="inline font-semibold">近机位 / 远机位 / 远远机位（stand）</dt><dd class="inline"> — 停机位类型。近机位不计「摆渡车」环节；远机位、远远机位计入且时长不同。</dd></div>
+      <div><dt class="inline font-semibold">P50 / P90 / P95</dt><dd class="inline"> — 估算衔接时间的分位数：约一半 / 90% / 95% 情况下能在该分钟数内完成（演示估算，非实测保证）。</dd></div>
+      <div><dt class="inline font-semibold">window_min（可用窗口）</dt><dd class="inline"> — 可用于衔接的分钟数，默认 55。相对截载、登机口关闭还是关舱计时【未确认】。</dd></div>
+      <div><dt class="inline font-semibold">slack 余量</dt><dd class="inline"> — 窗口减去估算时间：slack_min = window − P50（另有 window − P90、window − P95）。负数表示时间不够。</dd></div>
+      <div><dt class="inline font-semibold">风险档</dt><dd class="inline"> — 窗口 ≥ P95 低风险；≥ P90 可控风险；≥ P50 高风险；否则极高风险。</dd></div>
+      <div><dt class="inline font-semibold">mode</dt><dd class="inline"> — excel_default（测算器 Excel 基线）或 hybrid_t3（有实测样本的环节用实测分位，其余回落 Excel）。</dd></div>
+      <div><dt class="inline font-semibold">S1 = 20 分钟</dt><dd class="inline"> — 区分「专人保障」与「预改签」推荐的草案阈值，【未确认】，不是已定业务阈值。</dd></div>
+      <div><dt class="inline font-semibold">OCC</dt><dd class="inline"> — 运行控制中心（Operations Control Center）。</dd></div>
+    </dl>
+  </details>
+</section>
+</div>
 
 <main class="max-w-7xl mx-auto px-4 py-4 space-y-4">
 
@@ -347,7 +450,7 @@ tailwind.config = {
         <div class="text-xs font-semibold uppercase tracking-wider opacity-90">risk_level（相对 window_min · 窗口 vs 分位）</div>
         <div class="text-2xl font-black tracking-tight" id="riskLabel">请完整填写全部必填项后测算</div>
         <div class="text-sm mt-1 opacity-95" id="riskAction">—</div>
-        <div class="text-xs mt-0.5 opacity-90 font-semibold">推荐≠派单 · 不自动执行</div>
+        <div class="text-xs mt-0.5 opacity-90 font-semibold">推荐 · 非派单 · 不自动执行</div>
       </div>
       <div class="text-right text-sm opacity-95 font-mono">
         <div>window_min=<span id="riskWindow">—</span></div>
@@ -699,7 +802,7 @@ tailwind.config = {
       request_id: newRequestId()
     };
     setApiStatus('请求中… POST /v1/mct/estimate', true);
-    if (!firstDone) setTopStatus('连接演示服…首次加载约半分钟');
+    if (!firstDone) setTopStatus('连接演示服…首次打开可能需要约 15–30 秒，偶尔更久');
     let res;
     try {
       res = await fetch(API_BASE + '/v1/mct/estimate', {
@@ -1132,9 +1235,12 @@ tailwind.config = {
   document.getElementById('flagsList').innerHTML = '<li class="text-slate-400 text-sm">测算后显示本次 flags.labels</li>';
   document.getElementById('nodesBody').innerHTML = '<tr><td colspan="8" class="text-xs text-slate-400">请完整填写全部必填项后测算</td></tr>';
   syncValidation();
-  fetch(API_BASE + '/v1/health').then(r => {
-    setTopStatus(r.ok ? '就绪 · 演示服在线 · 待测算' : ('演示服异常 HTTP ' + r.status + ' · 待测算'));
-  }).catch(() => setTopStatus('演示服暂未连上 · 可先填写 · 测算时将重试'));
+  // FE4：复用同一 health 检查，经 wake.js 加冷启动横幅与重试（仍不调用 estimate）
+  window.mctWakeHealth(API_BASE, (ok, r) => {
+    if (ok) setTopStatus('就绪 · 演示服在线 · 待测算');
+    else if (r && r.status) setTopStatus('演示服异常 HTTP ' + r.status + ' · 待测算');
+    else setTopStatus('演示服暂未连上 · 可先填写 · 测算时将重试');
+  });
 })();
 </script>
 </body>

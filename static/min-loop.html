@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>动态 MCT · 最小闭环演示（estimate 契约 io_v0.2 · 决策层 v0.3 设计稿、未开实现闸）</title>
+<title>动态 MCT · 最小闭环演示（estimate 契约 io_v0.2 · 决策层 v0.3 设计稿、尚未实现）</title>
 <!-- favicon：内联 data URI（源文件 static/favicon.svg；后端未加路由） -->
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230f2744%22/%3E%3Ctext x=%2216%22 y=%2221%22 font-family=%22Arial,sans-serif%22 font-size=%2212%22 font-weight=%22700%22 fill=%22%2393c5fd%22 text-anchor=%22middle%22%3EMCT%3C/text%3E%3C/svg%3E" />
 <script src="https://cdn.tailwindcss.com"></script>
@@ -51,6 +51,77 @@ tailwind.config = {
   .risk-dark * { opacity:1 !important; }
   .stale-banner { background:#FEF3C7; color:#78350F; border:2px solid #B45309; font-weight:700; }
 </style>
+<script>
+/* FE4 冷启动唤醒提示：GET /v1/health（相对路径，与页面 API_BASE 相同）。
+ * 只做健康检查，绝不调用 estimate。1.5s 未应答 → 显示横幅；health OK → 自动隐藏；60s 仍失败 → 显示刷新/重试提示。 */
+(function () {
+  var MSG = {
+    zh: { waking: '服务正在唤醒（免费主机冷启动）：首次打开可能需要约 15–30 秒，偶尔更久…', failed: '服务仍未就绪（已等待 60 秒）。请刷新页面，或', retry: '点此重试', tail: '。' },
+    en: { waking: 'Waking up the demo service (free-tier host cold start). First load may take about 15–30 seconds, occasionally longer…', failed: 'The service is still not ready after 60 s. Please refresh the page, or', retry: 'retry now', tail: '.' }
+  };
+  function ensureStyle() {
+    if (document.getElementById('wakeStyle')) return;
+    var s = document.createElement('style');
+    s.id = 'wakeStyle';
+    s.textContent = '#wakeBanner{position:fixed;top:0;left:0;right:0;z-index:60;background:#fffbeb;border-bottom:1px solid #fcd34d;color:#78350f;font-size:13px;padding:6px 12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}' +
+      '#wakeBanner .wake-bar{height:3px;margin:5px auto 0;max-width:420px;background:#fde68a;border-radius:2px;overflow:hidden;position:relative}' +
+      '#wakeBanner .wake-bar>i{position:absolute;top:0;bottom:0;width:35%;background:#f59e0b;border-radius:2px;animation:wakeSlide 1.4s ease-in-out infinite}' +
+      '@keyframes wakeSlide{0%{left:-35%}100%{left:100%}}' +
+      '#wakeBanner.wake-fail{background:#fef2f2;border-color:#fca5a5;color:#7f1d1d}#wakeBanner.wake-fail .wake-bar{display:none}' +
+      '#wakeBanner button{text-decoration:underline;font-weight:600;color:inherit;background:none;border:0;cursor:pointer;padding:0 2px}';
+    document.head.appendChild(s);
+  }
+  /**
+   * apiBase: 页面已有的 API_BASE；onDone(ok, info): ok=true 时 info 为 Response；ok=false 时 info 为最后的 Response 或 Error
+   */
+  window.mctWakeHealth = function (apiBase, onDone, opts) {
+    opts = opts || {};
+    var t = MSG[opts.lang === 'en' ? 'en' : 'zh'];
+    var SHOW_AFTER = 1500, GIVE_UP = 60000, RETRY_EVERY = 4000, PER_TRY = 10000;
+    var start = Date.now(), done = false, banner = null, showTimer;
+    function show(fail) {
+      ensureStyle();
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'wakeBanner';
+        banner.setAttribute('role', 'status');
+        banner.setAttribute('aria-live', 'polite');
+        document.body.appendChild(banner);
+      }
+      if (fail) {
+        banner.className = 'wake-fail';
+        banner.innerHTML = '<span>' + t.failed + ' <button type="button" id="wakeRetry">' + t.retry + '</button>' + t.tail + '</span>';
+        document.getElementById('wakeRetry').onclick = function () { hide(); window.mctWakeHealth(apiBase, onDone, opts); };
+      } else {
+        banner.className = '';
+        banner.innerHTML = '<span>' + t.waking + '</span><div class="wake-bar"><i></i></div>';
+      }
+    }
+    function hide() { if (banner) { banner.remove(); banner = null; } }
+    function attempt() {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var to = setTimeout(function () { if (ctl) ctl.abort(); }, PER_TRY);
+      fetch(apiBase + '/v1/health', ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' })
+        .then(function (r) { clearTimeout(to); if (r.ok) return finish(true, r); retryOrFail(r); })
+        .catch(function (e) { clearTimeout(to); retryOrFail(e); });
+    }
+    function retryOrFail(info) {
+      if (done) return;
+      if (Date.now() - start >= GIVE_UP) return finish(false, info);
+      setTimeout(attempt, RETRY_EVERY);
+    }
+    function finish(ok, info) {
+      if (done) return;
+      done = true;
+      clearTimeout(showTimer);
+      if (ok) hide(); else show(true);
+      if (onDone) onDone(ok, info);
+    }
+    showTimer = setTimeout(function () { if (!done) show(false); }, SHOW_AFTER);
+    attempt();
+  };
+})();
+</script>
 </head>
 <body class="text-slate-800 dense">
 <!-- 顶栏：页签 + 受众 -->
@@ -59,12 +130,14 @@ tailwind.config = {
     <div class="flex items-center gap-3">
       <div>
         <h1 class="text-sm font-bold leading-tight">动态 MCT · 最小闭环</h1>
-        <p class="text-[10px] text-slate-300 mt-0.5">estimate 契约 io_v0.2 · 决策层 v0.3 设计稿、未开实现闸（前端演示计算 · quantile_anchor_proxy）</p>
-        <p id="topStatus" class="text-[10px] font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">检查演示服…（首次可能约半分钟）</p>
+        <p class="text-[10px] text-slate-300 mt-0.5">estimate 契约 io_v0.2 · 决策层 v0.3 设计稿、尚未实现（前端演示计算 · quantile_anchor_proxy）</p>
+        <p id="topStatus" class="text-[10px] font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">检查演示服…（首次打开可能需要约 15–30 秒，偶尔更久）</p>
       </div>
       <nav class="flex gap-1 ml-2" aria-label="页面">
         <a href="index.html" class="tab-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold hover:bg-ops-800">测算 (index)</a>
         <span class="tab-btn active px-2.5 py-1 rounded border text-[11px] font-semibold">最小闭环</span>
+        <a href="en.html" class="tab-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold hover:bg-ops-800">English tour</a>
+        <a href="api.html" class="tab-btn px-2.5 py-1 rounded border border-slate-500 text-[11px] font-semibold hover:bg-ops-800">API 参考</a>
       </nav>
     </div>
     <div class="flex items-center gap-1" role="group" aria-label="受众">
@@ -79,13 +152,37 @@ tailwind.config = {
 <main class="max-w-[1400px] mx-auto p-3 grid grid-cols-12 gap-3">
   <!-- 左：输入 / 测算 -->
   
+<!-- FE4：白话简介 + 术语表 -->
+<section id="introBox" class="col-span-12 bg-white border border-blue-200 rounded-lg p-3 text-[13px] leading-relaxed text-slate-700">
+  <div class="font-semibold text-blue-900 mb-1">这是什么？</div>
+  <p>这是一个<strong>动态 MCT 估算演示</strong>。MCT = Minimum Connecting Time（最短中转衔接时间）：旅客从前段航班落地到赶上后段航班，中间各环节（下机、摆渡、边检、海关、行李、手续、步行、安检等）大约需要多少分钟。页面按你选的场景估算 P50/P90/P95 分钟数，并与「可用衔接窗口」对比给出风险档。</p>
+  <p class="mt-1"><strong>服务对象：</strong>枢纽中转运行 / OCC 与一线保障人员（看风险与建议动作），以及旅客提示（白话结论）。</p>
+  <p class="mt-1 text-amber-800"><strong>重要：</strong>仅为演示，非生产系统；成功几率是<strong>未校准的代理值</strong>，不是承诺能赶上；页面上的「推荐」只是界面建议，不会派单、不会自动改签。</p>
+  <details class="mt-2">
+    <summary class="cursor-pointer font-semibold text-blue-800">术语表（点开）</summary>
+    <dl class="mt-1.5 grid sm:grid-cols-2 gap-x-4 gap-y-1 text-[12px]">
+      <div><dt class="inline font-semibold">MCT</dt><dd class="inline"> — 最短中转衔接时间（Minimum Connecting Time）的估算。</dd></div>
+      <div><dt class="inline font-semibold">通程（through）</dt><dd class="inline"> — 是/否。选「是」时不计「I-D 办理手续」环节。英文常称 through check-in；是否等同行李直挂【未确认】。</dd></div>
+      <div><dt class="inline font-semibold">免提（carry_on_only）</dt><dd class="inline"> — 是/否，即仅随身行李、无需提取托运行李。选「是」时不计「提取行李」与「I-D 办理手续」环节。</dd></div>
+      <div><dt class="inline font-semibold">E-C / E-D（flow）</dt><dd class="inline"> — 测算器的两档流向字段（默认 E-D）。业务含义【未确认】；实测「I转D」是否等同 E-D【未确认】；E-C 本包几乎无实测样本。</dd></div>
+      <div><dt class="inline font-semibold">近机位 / 远机位 / 远远机位（stand）</dt><dd class="inline"> — 停机位类型。近机位不计「摆渡车」环节；远机位、远远机位计入且时长不同。</dd></div>
+      <div><dt class="inline font-semibold">P50 / P90 / P95</dt><dd class="inline"> — 估算衔接时间的分位数：约一半 / 90% / 95% 情况下能在该分钟数内完成（演示估算，非实测保证）。</dd></div>
+      <div><dt class="inline font-semibold">window_min（可用窗口）</dt><dd class="inline"> — 可用于衔接的分钟数，默认 55。相对截载、登机口关闭还是关舱计时【未确认】。</dd></div>
+      <div><dt class="inline font-semibold">slack 余量</dt><dd class="inline"> — 窗口减去估算时间：slack_min = window − P50（另有 window − P90、window − P95）。负数表示时间不够。</dd></div>
+      <div><dt class="inline font-semibold">风险档</dt><dd class="inline"> — 窗口 ≥ P95 低风险；≥ P90 可控风险；≥ P50 高风险；否则极高风险。</dd></div>
+      <div><dt class="inline font-semibold">mode</dt><dd class="inline"> — excel_default（测算器 Excel 基线）或 hybrid_t3（有实测样本的环节用实测分位，其余回落 Excel）。</dd></div>
+      <div><dt class="inline font-semibold">S1 = 20 分钟</dt><dd class="inline"> — 区分「专人保障」与「预改签」推荐的草案阈值，【未确认】，不是已定业务阈值。</dd></div>
+      <div><dt class="inline font-semibold">OCC</dt><dd class="inline"> — 运行控制中心（Operations Control Center）。</dd></div>
+    </dl>
+  </details>
+</section>
   <!-- 汇报开场硬钉（当面可见） -->
   <section class="col-span-12 card p-2.5 border-amber-200 bg-amber-50/80 text-[12px] text-slate-800 leading-relaxed" id="reportOpenBanner">
     <div class="font-semibold text-amber-900 mb-1">汇报开场（非正式生产演示 · 非投产）</div>
     <ul class="list-disc pl-4 space-y-0.5">
       <li>非正式生产演示。几率 = <strong>未校准代理</strong>，不是承诺能赶上；禁止说「保证赶上 / 已校准」。</li>
       <li>超时策略<strong>【未人工确认】</strong>：系统<strong>不会自动改签</strong>；任何自动升预改签路径未启用。</li>
-      <li>界面「推荐」≠ 派单 / 不等于已调度；OCC 角标可见。未映射档（如 L5/L2 独立 id）<strong>勿当已实现</strong>。不绑数字主播开播。</li>
+      <li>界面「推荐」不等于派单 / 不等于已调度；OCC 角标可见。未映射档（如 L5/L2 独立 id）<strong>勿当已实现</strong>。不绑数字主播开播。</li>
       <li>S1=20 仅为草案配置 <span class="chip chip-amber">unconfirmed_config</span>，不是已拍板业务阈值。</li>
     </ul>
   </section>
@@ -138,7 +235,7 @@ tailwind.config = {
     <!-- 成功概率 + slack -->
     <div class="card p-3">
       <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
-        <div class="section-title">决策层 · v0.3 设计稿、未开实现闸（前端演示计算）</div>
+        <div class="section-title">决策层 · v0.3 设计稿、尚未实现（前端演示计算）</div>
         <div class="flex flex-wrap gap-1">
           <span class="chip chip-purple occ-line-only" id="chipKind">success_prob_kind=quantile_anchor_proxy</span>
           <span class="chip chip-red">概率未校准</span>
@@ -177,7 +274,7 @@ tailwind.config = {
       <div id="riskBanner" class="mt-2 rounded px-2.5 py-1.5 text-xs font-semibold text-white bg-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
         <span>risk_level=<span id="dispRisk">请完整填写全部必填项后测算</span></span>
         <span>v0.2 action=<span id="dispActionV02">—</span></span>
-        <span>recommended=<span id="dispRec" class="underline">—</span> <span class="opacity-90">（≠派单）</span></span>
+        <span>recommended=<span id="dispRec" class="underline">—</span> <span class="opacity-90">（非派单）</span></span>
       </div>
     </div>
 
@@ -185,14 +282,14 @@ tailwind.config = {
     <div class="card p-3">
       <div class="flex items-center justify-between mb-2">
         <div class="section-title">action_ladder · 五档（轻→重）</div>
-        <span class="chip chip-blue" id="chipRecHint">推荐 ≠ 派单 · UI默认=recommended</span>
+        <span class="chip chip-blue" id="chipRecHint">推荐不等于派单 · UI默认=recommended</span>
       </div>
       <div id="ladderList" class="space-y-1.5" role="radiogroup" aria-label="干预梯队"></div>
       <p class="text-[10px] text-slate-500 mt-2 leading-relaxed">
         推荐规则【草案·未升格】：极高风险且 −s1≤slack_min&lt;0 → <code class="font-mono">dedicated_assist</code>；
         slack_min &lt; −s1 → <code class="font-mono">pre_rebook</code>。
         s1=20 为 <strong>【未确认】配置</strong>，不是已定阈值。
-        <strong>推荐高亮 ≠ 派单</strong>；禁止默认选中 pre_rebook，除非 recommended 即该项。
+        <strong>推荐高亮不等于派单</strong>；禁止默认选中 pre_rebook，除非 recommended 即该项。
       </p>
     </div>
 
@@ -264,7 +361,7 @@ tailwind.config = {
   </section>
 </main>
 
-<div class="sticky-badge" role="status">最小闭环演示 · 非正式生产 · 概率未校准代理 · 推荐≠派单 · 非投产</div>
+<div class="sticky-badge" role="status">最小闭环演示 · 非正式生产 · 概率未校准代理 · 推荐 · 非派单 · 非投产</div>
 
 <script>
 (function () {
@@ -429,7 +526,7 @@ tailwind.config = {
     $('dispP95').textContent = Number(sum.p95_min).toFixed(2);
     $('dispWin').textContent = String(sum.window_min != null ? sum.window_min : $('window_min').value);
     $('dispRisk').textContent = sum.risk_level || '—';
-    $('dispActionV02').textContent = ((sum.action === '预改签 / 急转 / 专人保障' || sum.action === '专人保障（急转）/ 预改签') ? '专人保障（急转）/ 预改签 · 推荐≠派单 · 不自动执行' : sum.action) || '—';
+    $('dispActionV02').textContent = ((sum.action === '预改签 / 急转 / 专人保障' || sum.action === '专人保障（急转）/ 预改签') ? '专人保障（急转）/ 预改签 · 推荐 · 非派单 · 不自动执行' : sum.action) || '—';
     $('dispRec').textContent = v.recommended_action_id || '—';
     $('riskBanner').style.background = riskColor(sum.risk_level);
     $('riskBanner').classList.toggle('risk-dark', sum.risk_level === '可控风险' || sum.risk_level === '可控'); // 深字 #111827 on #CA8A04 = 6.04:1
@@ -458,7 +555,7 @@ tailwind.config = {
         '<span class="font-semibold">#' + r.rank + ' ' + r.label + '</span>' +
         '<span class="chip chip-gray font-mono">' + r.id + '</span>' +
         '<span class="chip ' + (r.status === 'offered' ? 'chip-blue' : 'chip-gray') + '">' + r.status + '</span>' +
-        (r.id === v.recommended_action_id ? '<span class="chip chip-green">推荐(≠派单)</span>' : '') +
+        (r.id === v.recommended_action_id ? '<span class="chip chip-green">推荐 · 非派单</span>' : '') +
         '</div>' +
         '<div class="text-[10px] text-slate-500 mt-0.5">audience=' + r.audience + (r.id === v.recommended_action_id ? ' · 推荐仅界面建议，未派单' : '') + '</div>' +
         '</div>';
@@ -871,9 +968,11 @@ tailwind.config = {
   $('btnFeedback').classList.add('opacity-50');
   $('fbStatus').textContent = '未测算 · 不回灌';
   $('flagsLabels').innerHTML = '<li class="text-slate-400">测算后显示本次 flags.labels</li>';
-  fetch(API_BASE + '/v1/health').then(r => {
-    $('topStatus').textContent = r.ok ? '就绪 · 演示服在线 · 待测算' : ('演示服异常 HTTP ' + r.status + ' · 待测算');
-  }).catch(() => { $('topStatus').textContent = '演示服暂未连上 · 可先填写 · 测算时将重试'; });
+  // FE4：复用同一 health 检查，经 wake.js 加冷启动横幅与重试（仍不调用 estimate）
+  window.mctWakeHealth(API_BASE, (ok, r) => {
+    $('topStatus').textContent = ok ? '就绪 · 演示服在线 · 待测算'
+      : ((r && r.status) ? ('演示服异常 HTTP ' + r.status + ' · 待测算') : '演示服暂未连上 · 可先填写 · 测算时将重试');
+  });
 })();
 </script>
 </body>

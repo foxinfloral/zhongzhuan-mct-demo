@@ -26,3 +26,13 @@ def _min_loop():
 @app.get("/index.html", include_in_schema=False)
 def _index():
     return FileResponse(_STATIC / "index.html", media_type="text/html; charset=utf-8")
+
+
+@app.get("/en.html", include_in_schema=False)
+def _en():
+    return FileResponse(_STATIC / "en.html", media_type="text/html; charset=utf-8")
+
+
+@app.get("/api.html", include_in_schema=False)
+def _api_page():
+    return FileResponse(_STATIC / "api.html", media_type="text/html; charset=utf-8")

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>动态 MCT 演示 · API 参考 (static)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230f2744%22/%3E%3Ctext x=%2216%22 y=%2221%22 font-family=%22Arial,sans-serif%22 font-size=%2212%22 font-weight=%22700%22 fill=%22%2393c5fd%22 text-anchor=%22middle%22%3EMCT%3C/text%3E%3C/svg%3E" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{ops:{50:'#f0f7ff',100:'#e0effe',800:'#1e3a5f',900:'#0f2744'}}}}}</script>
+<style>
+  body { font-family: system-ui, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+  .chip { display:inline-flex; align-items:center; font-size:0.65rem; font-weight:700; padding:0.2rem 0.45rem; border-radius:0.25rem; white-space:nowrap; }
+  .chip-amber { background:#FEF3C7; color:#92400E; border:1px solid #F59E0B; }
+  .chip-gray { background:#F3F4F6; color:#6B7280; border:1px solid #D1D5DB; }
+  .chip-proto { background:#DBEAFE; color:#1E40AF; border:1px solid #3B82F6; }
+  .chip-red { background:#FEE2E2; color:#991B1B; border:1px solid #F87171; }
+  .card { background:#fff; border:1px solid #E5E7EB; border-radius:0.5rem; box-shadow:0 1px 2px rgba(15,39,68,.04); padding:1rem; }
+  h2 { font-weight:700; color:#0f2744; margin-bottom:.5rem; font-size:1.05rem; }
+  table { width:100%; border-collapse:collapse; font-size:.8rem; }
+  th, td { border-bottom:1px solid #E5E7EB; padding:.35rem .5rem; text-align:left; vertical-align:top; }
+  th { background:#F8FAFC; color:#475569; font-weight:600; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size:.8em; background:#F1F5F9; padding:0 .25rem; border-radius:.2rem; }
+  pre { background:#0f172a; color:#e2e8f0; font-size:.75rem; padding:.75rem; border-radius:.4rem; overflow-x:auto; }
+</style>
+<script>
+/* FE4 冷启动唤醒提示：GET /v1/health（相对路径，与页面 API_BASE 相同）。
+ * 只做健康检查，绝不调用 estimate。1.5s 未应答 → 显示横幅；health OK → 自动隐藏；60s 仍失败 → 显示刷新/重试提示。 */
+(function () {
+  var MSG = {
+    zh: { waking: '服务正在唤醒（免费主机冷启动）：首次打开可能需要约 15–30 秒，偶尔更久…', failed: '服务仍未就绪（已等待 60 秒）。请刷新页面，或', retry: '点此重试', tail: '。' },
+    en: { waking: 'Waking up the demo service (free-tier host cold start). First load may take about 15–30 seconds, occasionally longer…', failed: 'The service is still not ready after 60 s. Please refresh the page, or', retry: 'retry now', tail: '.' }
+  };
+  function ensureStyle() {
+    if (document.getElementById('wakeStyle')) return;
+    var s = document.createElement('style');
+    s.id = 'wakeStyle';
+    s.textContent = '#wakeBanner{position:fixed;top:0;left:0;right:0;z-index:60;background:#fffbeb;border-bottom:1px solid #fcd34d;color:#78350f;font-size:13px;padding:6px 12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}' +
+      '#wakeBanner .wake-bar{height:3px;margin:5px auto 0;max-width:420px;background:#fde68a;border-radius:2px;overflow:hidden;position:relative}' +
+      '#wakeBanner .wake-bar>i{position:absolute;top:0;bottom:0;width:35%;background:#f59e0b;border-radius:2px;animation:wakeSlide 1.4s ease-in-out infinite}' +
+      '@keyframes wakeSlide{0%{left:-35%}100%{left:100%}}' +
+      '#wakeBanner.wake-fail{background:#fef2f2;border-color:#fca5a5;color:#7f1d1d}#wakeBanner.wake-fail .wake-bar{display:none}' +
+      '#wakeBanner button{text-decoration:underline;font-weight:600;color:inherit;background:none;border:0;cursor:pointer;padding:0 2px}';
+    document.head.appendChild(s);
+  }
+  /**
+   * apiBase: 页面已有的 API_BASE；onDone(ok, info): ok=true 时 info 为 Response；ok=false 时 info 为最后的 Response 或 Error
+   */
+  window.mctWakeHealth = function (apiBase, onDone, opts) {
+    opts = opts || {};
+    var t = MSG[opts.lang === 'en' ? 'en' : 'zh'];
+    var SHOW_AFTER = 1500, GIVE_UP = 60000, RETRY_EVERY = 4000, PER_TRY = 10000;
+    var start = Date.now(), done = false, banner = null, showTimer;
+    function show(fail) {
+      ensureStyle();
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'wakeBanner';
+        banner.setAttribute('role', 'status');
+        banner.setAttribute('aria-live', 'polite');
+        document.body.appendChild(banner);
+      }
+      if (fail) {
+        banner.className = 'wake-fail';
+        banner.innerHTML = '<span>' + t.failed + ' <button type="button" id="wakeRetry">' + t.retry + '</button>' + t.tail + '</span>';
+        document.getElementById('wakeRetry').onclick = function () { hide(); window.mctWakeHealth(apiBase, onDone, opts); };
+      } else {
+        banner.className = '';
+        banner.innerHTML = '<span>' + t.waking + '</span><div class="wake-bar"><i></i></div>';
+      }
+    }
+    function hide() { if (banner) { banner.remove(); banner = null; } }
+    function attempt() {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var to = setTimeout(function () { if (ctl) ctl.abort(); }, PER_TRY);
+      fetch(apiBase + '/v1/health', ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' })
+        .then(function (r) { clearTimeout(to); if (r.ok) return finish(true, r); retryOrFail(r); })
+        .catch(function (e) { clearTimeout(to); retryOrFail(e); });
+    }
+    function retryOrFail(info) {
+      if (done) return;
+      if (Date.now() - start >= GIVE_UP) return finish(false, info);
+      setTimeout(attempt, RETRY_EVERY);
+    }
+    function finish(ok, info) {
+      if (done) return;
+      done = true;
+      clearTimeout(showTimer);
+      if (ok) hide(); else show(true);
+      if (onDone) onDone(ok, info);
+    }
+    showTimer = setTimeout(function () { if (!done) show(false); }, SHOW_AFTER);
+    attempt();
+  };
+})();
+</script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+<header class="bg-ops-900 text-white border-b border-slate-700">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-sm font-bold text-blue-200">MCT</div>
+      <div>
+        <h1 class="text-base sm:text-lg font-bold">API 参考 · API reference <span class="chip chip-proto ml-1">Demo</span></h1>
+        <p id="topStatus" class="text-xs font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">检查演示服… Checking service…</p>
+      </div>
+    </div>
+    <nav class="flex flex-wrap gap-1.5 text-[11px]" aria-label="Pages"><a href="index.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700">测算 (index)</a><a href="min-loop.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700">最小闭环</a><a href="en.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700">English tour</a><span class="px-2 py-0.5 rounded border border-blue-400/60 bg-blue-500/20 font-semibold">API 参考</span></nav>
+  </div>
+</header>
+<main class="max-w-5xl mx-auto p-4 space-y-4 text-[14px] leading-relaxed">
+<section class="card border-amber-300 bg-amber-50 text-[13px] text-amber-900">
+  演示服务 · 非生产 · 概率未校准代理 · 推荐不等于派单 · 不会自动改签。Demo service, non-production. 首次打开可能需要约 15–30 秒，偶尔更久。
+  <div class="mt-1">交互文档 Interactive docs (FastAPI)：<a class="text-blue-700 underline" href="/docs">/docs</a> · <a class="text-blue-700 underline" href="/openapi.json">/openapi.json</a>（以服务实际返回为准，本页不另立 schema）</div>
+</section>
+
+<section class="card">
+  <h2>POST /v1/mct/estimate · 估算 Estimate</h2>
+  <p class="text-[13px] mb-2">别名 alias：<code>POST /v0/mct/estimate</code>。契约 contract：<code>io_v0.2</code>。</p>
+  <p class="text-[13px] mb-2"><strong>请求字段 Request fields</strong>（下表照录仓库 README）：取值以 <code>mct_service/normalize.py</code> 为准，严格匹配，不接受别名。字段缺省（缺失 / <code>null</code> / 空串）时使用默认值，HTTP 仍为 200，并在 <code>flags.defaults_applied</code> 列出字段名、<code>flags.labels</code> 追加「已用默认 字段=值」。</p>
+  <table>
+    <tr><th>字段 Field</th><th>允许值 Values</th><th>默认 Default</th></tr>
+    <tr><td><code>flow</code></td><td><code>E-C</code> / <code>E-D</code>（业务含义【未确认】）</td><td><code>E-D</code></td></tr>
+    <tr><td><code>nation</code></td><td><code>国内</code> / <code>外籍</code></td><td><code>外籍</code></td></tr>
+    <tr><td><code>stand</code></td><td><code>近机位</code> / <code>远机位</code> / <code>远远机位</code></td><td><code>远机位</code></td></tr>
+    <tr><td><code>period</code></td><td><code>早</code> / <code>中</code> / <code>晚</code> / <code>凌晨</code></td><td><code>中</code></td></tr>
+    <tr><td><code>through</code></td><td><code>是</code> / <code>否</code></td><td><code>否</code></td></tr>
+    <tr><td><code>carry_on_only</code></td><td><code>是</code> / <code>否</code></td><td><code>否</code></td></tr>
+    <tr><td><code>ac_type</code></td><td><code>窄体</code> / <code>宽体</code></td><td><code>窄体</code></td></tr>
+    <tr><td><code>seat_zone</code></td><td><code>前舱</code> / <code>中舱</code> / <code>后舱</code></td><td><code>后舱</code></td></tr>
+    <tr><td><code>window_min</code></td><td>数字，&gt; 0</td><td><code>55</code></td></tr>
+    <tr><td><code>mode</code></td><td><code>excel_default</code> / <code>hybrid_t3</code></td><td><code>hybrid_t3</code></td></tr>
+    <tr><td><code>request_id</code></td><td>可选字符串，原样回显；缺省时返回 <code>null</code>；不校验唯一性</td><td>—</td></tr>
+  </table>
+  <p class="text-[13px] mt-2">其它取值返回 HTTP 400。废弃键：<code>through_check</code>→<code>through</code>、<code>hand_baggage_free</code>→<code>carry_on_only</code>、<code>aircraft</code>→<code>ac_type</code> 目前仍会被映射（并带 <code>flags.deprecated_keys_used</code> 与【废弃】标签），新接入请勿使用；<code>passenger_type</code> 不做映射：未同时提供 <code>nation</code>+<code>seat_zone</code> 时返回 400，同时提供时被忽略。</p>
+  <p class="text-[13px] mt-3"><strong>响应 Response</strong>（顶层键见 <code>mct_service/engine.py</code>）：<code>request_id, contract_version, engine_version, mode, inputs, summary, compare{excel_default, hybrid_t3}, nodes[], flags, engine</code></p>
+  <table class="mt-1">
+    <tr><th>块 Block</th><th>内容 Contents（io_v0.2 §2）</th></tr>
+    <tr><td><code>summary</code></td><td><code>p50_min</code>（Σ 计入 P50）、<code>p90_min</code>（P50 + √Σ(P90−P50)²，不是 ΣP90）、<code>p95_min</code>（P50 + 1.2852×√Σ(P90−P50)²；系数来源【未确认】）、<code>window_min</code>、<code>risk_level</code>（<code>低风险</code>|<code>可控风险</code>|<code>高风险</code>|<code>极高风险</code>）、<code>action</code>、<code>included_count</code>、<code>e28</code>（Σ(P90−P50)²）</td></tr>
+    <tr><td><code>nodes[]</code></td><td><code>id</code> ∈ <code>taxi_in, deplane, bus, imm, customs, baggage, id_process, walk, apm, security</code>；字段 <code>name, included, p50_min, p90_min, source, source_n, note</code></td></tr>
+    <tr><td><code>flags</code></td><td>布尔位（如 <code>flow_ec_ed_meaning_unconfirmed</code>、<code>window_clock_unconfirmed</code>、<code>degrade_flow_unconfirmed</code>、<code>baggage_in_engine_scope_unconfirmed</code>、<code>period_bins_unconfirmed</code>、<code>walk_path_unconfirmed</code>、<code>missing_nodes</code> 等）+ <code>labels</code>：<strong>字符串数组</strong>（中文提示，含【未确认】/【缺项】）</td></tr>
+  </table>
+  <p class="text-[13px] mt-2">风险档 Risk tier：window ≥ P95 低风险；≥ P90 可控风险；≥ P50 高风险；否则极高风险。默认场景 hybrid_t3：74.4 / 94.22 / 99.87，极高风险。</p>
+  <p class="text-[13px] mt-1">错误 Errors：HTTP 400 <code>{"error": "...", "flags": {"labels": [...]}}</code>。</p>
+  <p class="text-[13px] mt-1 text-slate-500">注：min-loop 页的决策层（success_prob、ladder、recommended_action_id）为<strong>前端演示计算</strong>，不在 estimate 响应中。</p>
+</section>
+
+<section class="card">
+  <h2>POST /v1/mct/feedback · 回灌 Feedback</h2>
+  <p class="text-[13px] mb-2">别名 alias：<code>POST /v0/mct/feedback</code>。演示：只落盘（容器临时目录，重启清空），不改引擎、不派单。</p>
+  <table>
+    <tr><th>字段 Field</th><th>必填 Req.</th><th>说明 Notes</th></tr>
+    <tr><td><code>request_id</code></td><td>是</td><td>关联 estimate；缺失 → 400 + 【缺项】request_id</td></tr>
+    <tr><td><code>recorded_at</code></td><td>否</td><td>缺则服务端填接收时刻（ISO8601）</td></tr>
+    <tr><td><code>outcome.made_connection</code></td><td>推荐</td><td><code>true</code>/<code>false</code>；缺失或未知 → <code>null</code> + flag <code>outcome_unknown</code>，仍接收</td></tr>
+    <tr><td><code>outcome.outcome_note</code></td><td>否</td><td>短注，不含个人信息</td></tr>
+    <tr><td><code>actions_taken[]</code></td><td>否</td><td><code>{code, label, at}</code>；code ∈ <code>observe, warn_pool, inflight_warn, pre_rebook, rush_transfer, dedicated_assist, other</code>；未知 code → flag <code>action_code_unconfirmed</code></td></tr>
+    <tr><td><code>timestamps.*</code></td><td>否</td><td><code>in_ata, out_atd_or_gate_close, connection_declared_at</code>；缺项逐项标【缺项】</td></tr>
+    <tr><td><code>pax_key</code></td><td>否</td><td>脱敏键，须匹配 <code>^[A-Za-z0-9._:-]{1,64}$</code>；禁止证件号/手机/姓名</td></tr>
+    <tr><td><code>estimate_echo</code></td><td>否</td><td>当时 summary 摘要（mode, window_min, risk_level, p50/p90/p95）；缺则【缺项】estimate_echo</td></tr>
+    <tr><td><code>source</code></td><td>否</td><td>默认 <code>occ_demo_ui</code></td></tr>
+    <tr><td><code>operator_note</code></td><td>否</td><td>短文本，服务端截断</td></tr>
+  </table>
+  <p class="text-[13px] mt-2">响应 Response：<code>{"ok", "feedback_id", "request_id", "recorded_at", "flags": {"labels", "outcome_unknown"}}</code>；落盘记录含 <code>schema_version, received_at, engine_version, contract_version, payload, flags</code>。</p>
+  <p class="text-[13px] mt-1">另有 <code>GET /v1/mct/feedback/export?date=YYYY-MM-DD</code>（NDJSON；缺 date → 400【缺项】date）。</p>
+</section>
+
+<section class="card">
+  <h2>GET /v1/health · 健康检查 Health</h2>
+  <p class="text-[13px]">别名 <code>GET /v0/health</code>。响应：</p>
+  <pre>{"ok": true, "contract_version": "io_v0.2", "engine_version": "mct-svc-0.1-demo", "feedback_enabled": true}</pre>
+  <p class="text-[13px] mt-1">当前服务返回 Live：<span id="liveHealth" class="font-mono text-slate-600">—</span></p>
+</section>
+
+<section class="card text-[12px] text-slate-600">
+  <h2>来源 Sources</h2>
+  <ul class="list-disc pl-5">
+    <li><code>README.md</code>（foxinfloral/zhongzhuan-mct-demo @ e1ef808，只读 clone）—「估算接口输入字段」表照录</li>
+    <li><code>mct_service/app.py</code> — 路由、错误格式、health 响应；FastAPI 默认 /docs、/openapi.json（未关闭 docs_url）</li>
+    <li><code>mct_service/engine.py</code> — estimate 响应顶层键；<code>mct_service/normalize.py</code> — 版本号</li>
+    <li><code>mct_service/feedback.py</code> — feedback 校验与响应</li>
+    <li><code>contract/io_v0.2.md</code>（§2 响应、§4 风险档）</li>
+    <li><code>architecture-feedback-v0.1.md</code>（§2 feedback 字段、actions code 枚举）</li>
+  </ul>
+</section>
+</main>
+<script>
+window.mctWakeHealth('', function (ok, r) {
+  var top = document.getElementById('topStatus');
+  if (!ok) { top.textContent = '演示服暂未连上 Service not reachable'; return; }
+  top.textContent = '就绪 · 演示服在线 Online';
+  r.text().then(function (t) { document.getElementById('liveHealth').textContent = t; }).catch(function () {});
+});
+</script>
+</body>
+</html>

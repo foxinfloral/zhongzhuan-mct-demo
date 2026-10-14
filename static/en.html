@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dynamic MCT demo · English guided tour</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%230f2744%22/%3E%3Ctext x=%2216%22 y=%2221%22 font-family=%22Arial,sans-serif%22 font-size=%2212%22 font-weight=%22700%22 fill=%22%2393c5fd%22 text-anchor=%22middle%22%3EMCT%3C/text%3E%3C/svg%3E" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{ops:{50:'#f0f7ff',100:'#e0effe',800:'#1e3a5f',900:'#0f2744'}}}}}</script>
+<style>
+  body { font-family: system-ui, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+  .chip { display:inline-flex; align-items:center; font-size:0.65rem; font-weight:700; padding:0.2rem 0.45rem; border-radius:0.25rem; white-space:nowrap; }
+  .chip-amber { background:#FEF3C7; color:#92400E; border:1px solid #F59E0B; }
+  .chip-gray { background:#F3F4F6; color:#6B7280; border:1px solid #D1D5DB; }
+  .chip-proto { background:#DBEAFE; color:#1E40AF; border:1px solid #3B82F6; }
+  .chip-red { background:#FEE2E2; color:#991B1B; border:1px solid #F87171; }
+  .card { background:#fff; border:1px solid #E5E7EB; border-radius:0.5rem; box-shadow:0 1px 2px rgba(15,39,68,.04); padding:1rem; }
+  h2 { font-weight:700; color:#0f2744; margin-bottom:.5rem; font-size:1.05rem; }
+  table { width:100%; border-collapse:collapse; font-size:.8rem; }
+  th, td { border-bottom:1px solid #E5E7EB; padding:.35rem .5rem; text-align:left; vertical-align:top; }
+  th { background:#F8FAFC; color:#475569; font-weight:600; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size:.8em; background:#F1F5F9; padding:0 .25rem; border-radius:.2rem; }
+  pre { background:#0f172a; color:#e2e8f0; font-size:.75rem; padding:.75rem; border-radius:.4rem; overflow-x:auto; }
+</style>
+<script>
+/* FE4 冷启动唤醒提示：GET /v1/health（相对路径，与页面 API_BASE 相同）。
+ * 只做健康检查，绝不调用 estimate。1.5s 未应答 → 显示横幅；health OK → 自动隐藏；60s 仍失败 → 显示刷新/重试提示。 */
+(function () {
+  var MSG = {
+    zh: { waking: '服务正在唤醒（免费主机冷启动）：首次打开可能需要约 15–30 秒，偶尔更久…', failed: '服务仍未就绪（已等待 60 秒）。请刷新页面，或', retry: '点此重试', tail: '。' },
+    en: { waking: 'Waking up the demo service (free-tier host cold start). First load may take about 15–30 seconds, occasionally longer…', failed: 'The service is still not ready after 60 s. Please refresh the page, or', retry: 'retry now', tail: '.' }
+  };
+  function ensureStyle() {
+    if (document.getElementById('wakeStyle')) return;
+    var s = document.createElement('style');
+    s.id = 'wakeStyle';
+    s.textContent = '#wakeBanner{position:fixed;top:0;left:0;right:0;z-index:60;background:#fffbeb;border-bottom:1px solid #fcd34d;color:#78350f;font-size:13px;padding:6px 12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}' +
+      '#wakeBanner .wake-bar{height:3px;margin:5px auto 0;max-width:420px;background:#fde68a;border-radius:2px;overflow:hidden;position:relative}' +
+      '#wakeBanner .wake-bar>i{position:absolute;top:0;bottom:0;width:35%;background:#f59e0b;border-radius:2px;animation:wakeSlide 1.4s ease-in-out infinite}' +
+      '@keyframes wakeSlide{0%{left:-35%}100%{left:100%}}' +
+      '#wakeBanner.wake-fail{background:#fef2f2;border-color:#fca5a5;color:#7f1d1d}#wakeBanner.wake-fail .wake-bar{display:none}' +
+      '#wakeBanner button{text-decoration:underline;font-weight:600;color:inherit;background:none;border:0;cursor:pointer;padding:0 2px}';
+    document.head.appendChild(s);
+  }
+  /**
+   * apiBase: 页面已有的 API_BASE；onDone(ok, info): ok=true 时 info 为 Response；ok=false 时 info 为最后的 Response 或 Error
+   */
+  window.mctWakeHealth = function (apiBase, onDone, opts) {
+    opts = opts || {};
+    var t = MSG[opts.lang === 'en' ? 'en' : 'zh'];
+    var SHOW_AFTER = 1500, GIVE_UP = 60000, RETRY_EVERY = 4000, PER_TRY = 10000;
+    var start = Date.now(), done = false, banner = null, showTimer;
+    function show(fail) {
+      ensureStyle();
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'wakeBanner';
+        banner.setAttribute('role', 'status');
+        banner.setAttribute('aria-live', 'polite');
+        document.body.appendChild(banner);
+      }
+      if (fail) {
+        banner.className = 'wake-fail';
+        banner.innerHTML = '<span>' + t.failed + ' <button type="button" id="wakeRetry">' + t.retry + '</button>' + t.tail + '</span>';
+        document.getElementById('wakeRetry').onclick = function () { hide(); window.mctWakeHealth(apiBase, onDone, opts); };
+      } else {
+        banner.className = '';
+        banner.innerHTML = '<span>' + t.waking + '</span><div class="wake-bar"><i></i></div>';
+      }
+    }
+    function hide() { if (banner) { banner.remove(); banner = null; } }
+    function attempt() {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var to = setTimeout(function () { if (ctl) ctl.abort(); }, PER_TRY);
+      fetch(apiBase + '/v1/health', ctl ? { signal: ctl.signal, cache: 'no-store' } : { cache: 'no-store' })
+        .then(function (r) { clearTimeout(to); if (r.ok) return finish(true, r); retryOrFail(r); })
+        .catch(function (e) { clearTimeout(to); retryOrFail(e); });
+    }
+    function retryOrFail(info) {
+      if (done) return;
+      if (Date.now() - start >= GIVE_UP) return finish(false, info);
+      setTimeout(attempt, RETRY_EVERY);
+    }
+    function finish(ok, info) {
+      if (done) return;
+      done = true;
+      clearTimeout(showTimer);
+      if (ok) hide(); else show(true);
+      if (onDone) onDone(ok, info);
+    }
+    showTimer = setTimeout(function () { if (!done) show(false); }, SHOW_AFTER);
+    attempt();
+  };
+})();
+</script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+<header class="bg-ops-900 text-white border-b border-slate-700">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-sm font-bold text-blue-200">MCT</div>
+      <div>
+        <h1 class="text-base sm:text-lg font-bold">Dynamic MCT demo · English tour <span class="chip chip-proto ml-1">Demo</span></h1>
+        <p id="topStatus" class="text-xs font-mono text-amber-200 mt-0.5" role="status" aria-live="polite">Checking demo service…</p>
+      </div>
+    </div>
+    <nav class="flex flex-wrap gap-1.5 text-[11px]" aria-label="Pages"><a href="index.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700">测算 Estimator (index)</a><a href="min-loop.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700">最小闭环 Min-loop</a><span class="px-2 py-0.5 rounded border border-blue-400/60 bg-blue-500/20 font-semibold">English tour</span><a href="api.html" class="px-2 py-0.5 rounded border border-slate-500 hover:bg-slate-700">API reference</a></nav>
+  </div>
+</header>
+<main class="max-w-5xl mx-auto p-4 space-y-4 text-[14px] leading-relaxed">
+<section class="card border-amber-300 bg-amber-50">
+  <p class="font-semibold text-amber-900">Disclaimer</p>
+  <ul class="list-disc pl-5 text-amber-900 text-[13px]">
+    <li>This is a <strong>decision-support demo</strong>, <strong>non-production</strong> and <strong>not connected to production systems</strong>.</li>
+    <li>All results are <strong>uncalibrated</strong>. The success chance is an uncalibrated proxy, <strong>not a guarantee</strong> of making the connection.</li>
+    <li>A recommendation is only a recommendation, <strong>not a dispatch order</strong>; nothing is dispatched and nothing is rebooked automatically.</li>
+    <li>S1 = 20 min is an <em>unconfirmed config</em>; timeout / auto-escalation strategies are <em>not yet human-confirmed</em>.</li>
+    <li>First load may take about 15–30 seconds, occasionally longer (free-tier host cold start).</li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>1. What is MCT?</h2>
+  <p><strong>MCT = Minimum Connecting Time</strong>, estimated per passenger, instead of fixed 60/90/120/160 min. The demo adds up the steps of a transfer (taxi-in, deplaning, bus, immigration, customs, baggage, transfer formalities, walking, APM, security) and compares the result with the available connection window.</p>
+  <h2 class="mt-3">2. Who is it for?</h2>
+  <p>Hub transfer operations / OCC (Operations Control Center) and front-line staff, who see the risk tier and a recommended action; plus a plain-language passenger message view.</p>
+</section>
+
+<section class="card">
+  <h2>3. How to use the min-loop page</h2>
+  <ol class="list-decimal pl-5">
+    <li>Open <a class="text-blue-700 underline" href="min-loop.html">min-loop.html</a>. Nothing is estimated on page load; all fields start empty.</li>
+    <li>Click <strong>「填入演示默认场景」</strong> (fill demo default scenario). It only fills the form: E-D / through 否 / carry-on 否 / 远机位 / 窄体 / 后舱 / 中 / 外籍 / window 55 / hybrid_t3.</li>
+    <li>Click <strong>「测算 + 决策层」</strong> (estimate + decision layer) to run.</li>
+    <li>Use the audience switch (OCC / 一线 front line / 旅客 passenger) to see each view.</li>
+  </ol>
+  <p class="mt-2 text-[13px]">The estimator page <a class="text-blue-700 underline" href="index.html">index.html</a> works the same way (fill default, then run) and shows the Excel vs Hybrid comparison and per-node table.</p>
+</section>
+
+<section class="card">
+  <h2>4. What the default output means</h2>
+  <table>
+    <tr><th>Item</th><th>Default scenario value</th><th>Meaning</th></tr>
+    <tr><td>hybrid_t3 P50 / P90 / P95</td><td class="font-mono">74.4 / 94.22 / 99.87 min</td><td>Point-estimate quantiles from the calculator table (NOT a statistical distribution, NOT Monte Carlo). P90 = P50 + √Σ(P90−P50)²; P95 = P50 + 1.2852 × √Σ(P90−P50)². 1.2852 is a table coefficient (source unconfirmed), not a normal quantile.</td></tr>
+    <tr><td>excel_default P50 / P90 / P95</td><td class="font-mono">72.00 / 97.00 / 104.13 min</td><td>Excel baseline for comparison.</td></tr>
+    <tr><td>Risk tier</td><td>极高风险 (highest)</td><td>window ≥ P95 低风险 low; ≥ P90 可控风险 controllable; ≥ P50 高风险 high; otherwise 极高风险 highest.</td></tr>
+    <tr><td>slack</td><td class="font-mono">−19.4 min</td><td>slack = window − P50; at window 55 it is −19.4 min (55 − 74.4).</td></tr>
+    <tr><td>Success chance</td><td class="font-mono">about 37%</td><td>Uncalibrated proxy (quantile_anchor_proxy), not a guarantee.</td></tr>
+    <tr><td>Recommended action</td><td class="font-mono">dedicated_assist</td><td>专人保障 / 急转协助 (dedicated assistance / rush transfer, still trying to make the flight), because the tier is highest and −S1 ≤ slack &lt; 0 with S1 = 20 min (<em>unconfirmed config</em>). If slack &lt; −S1 the demo would recommend <code>pre_rebook</code>. Recommendation, not a dispatch order.</td></tr>
+  </table>
+</section>
+
+<section class="card">
+  <h2>5. Field glossary (io_v0.2)</h2>
+  <p class="text-[13px] mb-2">API values are Chinese strings; send them exactly as listed (English is only a gloss).</p>
+  <table>
+    <tr><th>Field</th><th>Values (gloss)</th><th>Default</th><th>Notes</th></tr>
+    <tr><td><code>flow</code></td><td><code>E-C</code> / <code>E-D</code></td><td>E-D</td><td>Literal flow codes only; meaning <em>unconfirmed</em>.</td></tr>
+    <tr><td><code>through</code></td><td><code>是</code> yes / <code>否</code> no</td><td>否</td><td>通程 = through check-in. 是 → transfer-formalities node (id_process) not counted.</td></tr>
+    <tr><td><code>carry_on_only</code></td><td><code>是</code> / <code>否</code></td><td>否</td><td>免提 = carry-on only, no checked bag to reclaim. 是 → baggage and id_process not counted.</td></tr>
+    <tr><td><code>stand</code></td><td><code>近机位</code> near / <code>远机位</code> remote / <code>远远机位</code> far-remote</td><td>远机位</td><td>Near stand → bus node not counted.</td></tr>
+    <tr><td><code>ac_type</code></td><td><code>窄体</code> narrow-body / <code>宽体</code> wide-body</td><td>窄体</td><td></td></tr>
+    <tr><td><code>seat_zone</code></td><td><code>前舱</code> front / <code>中舱</code> mid / <code>后舱</code> rear</td><td>后舱</td><td>Mapping to seat rows unconfirmed.</td></tr>
+    <tr><td><code>period</code></td><td><code>早</code> early / <code>中</code> mid / <code>晚</code> late / <code>凌晨</code> overnight</td><td>中</td><td>Time bins unconfirmed.</td></tr>
+    <tr><td><code>nation</code></td><td><code>国内</code> domestic / <code>外籍</code> foreign</td><td>外籍</td><td>Blank nationality = domestic? unconfirmed.</td></tr>
+    <tr><td><code>window_min</code></td><td>number &gt; 0</td><td>55</td><td>Clock reference (cut-off / gate close / door close) unconfirmed.</td></tr>
+    <tr><td><code>mode</code></td><td><code>excel_default</code> / <code>hybrid_t3</code></td><td>hybrid_t3</td><td>Excel baseline vs. Hybrid (measured quantiles where samples exist, Excel fallback otherwise).</td></tr>
+  </table>
+  <p class="text-[12px] text-slate-500 mt-2">Label translation used on this page (fixed lookup, backend untouched): <span id="labelMap"></span></p>
+</section>
+
+<section class="card text-[13px] text-slate-600">
+  <h2>Links</h2>
+  <p><a class="text-blue-700 underline" href="min-loop.html">Min-loop demo</a> · <a class="text-blue-700 underline" href="index.html">Estimator (index)</a> · <a class="text-blue-700 underline" href="api.html">API reference</a></p>
+</section>
+</main>
+<footer class="max-w-5xl mx-auto px-4 pb-6 text-[11px] text-slate-500" id="verFooter">Demo · non-production · uncalibrated</footer>
+<script>
+(function () {
+  // Fixed frontend lookup for Chinese labels coming from the API (backend untouched)
+  var LABEL_EN = { '【未确认】': '[unconfirmed]', '【缺项】': '[missing]', '未人工确认': 'not yet human-confirmed', '【废弃】': '[deprecated]' };
+  window.mctLabelEn = function (s) { Object.keys(LABEL_EN).forEach(function (k) { s = String(s).split(k).join(LABEL_EN[k]); }); return s; };
+  document.getElementById('labelMap').textContent = Object.keys(LABEL_EN).map(function (k) { return k + ' = ' + LABEL_EN[k]; }).join(' · ');
+  window.mctWakeHealth('', function (ok, r) {
+    var top = document.getElementById('topStatus');
+    if (!ok) { top.textContent = 'Demo service not reachable yet'; return; }
+    top.textContent = 'Demo service online';
+    r.json().then(function (h) {
+      document.getElementById('verFooter').textContent = 'Demo · non-production · uncalibrated · contract_version=' + h.contract_version + ' · engine_version=' + h.engine_version;
+    }).catch(function () {});
+  }, { lang: 'en' });
+})();
+</script>
+</body>
+</html>
