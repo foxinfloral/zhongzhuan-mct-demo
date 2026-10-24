@@ -160,7 +160,7 @@
     <tr><td><code>source</code></td><td>否</td><td>默认 <code>occ_demo_ui</code></td></tr>
     <tr><td><code>operator_note</code></td><td>否</td><td>短文本，服务端截断</td></tr>
   </table>
-  <p class="text-[13px] mt-2">响应 Response：<code>{"ok", "feedback_id", "request_id", "recorded_at", "flags": {"labels", "outcome_unknown"}}</code>；落盘记录含 <code>schema_version, received_at, engine_version, contract_version, payload, flags</code>。</p>
+  <p class="text-[13px] mt-2">响应 Response：<code>{"ok", "feedback_id", "request_id", "recorded_at", "path", "flags": {"labels", …}}</code>。<code>flags.labels</code> 固定返回；<code>outcome_unknown</code>、<code>action_code_unconfirmed</code>、<code>pii_stripped</code>、<code>pii_keys_stripped</code> 仅在触发时出现。依据为后端 <code>mct_service/feedback.py</code>（指纹 4752cfeb7835）；线上是否在跑这份代码【未确认】。落盘记录含 <code>schema_version, received_at, engine_version, contract_version, payload, flags</code>。</p>
   <p class="text-[13px] mt-1">另有 <code>GET /v1/mct/feedback/export?date=YYYY-MM-DD</code>（NDJSON；缺 date → 400【缺项】date）。</p>
 </section>
 
